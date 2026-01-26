@@ -147,7 +147,19 @@ granules/
 
 ## Running
 
+### Local Development
 ```bash
 npm install
 npm start
 ```
+
+### Using npx (no installation required)
+```bash
+npx granules
+```
+
+This will download and run the latest version of granules in your current directory. The orchestrator will:
+- Start the MCP server on localhost:3000
+- Create a bootstrap granule if none exist
+- Spawn workers to complete granules
+- Exit when an "Implemented" granule is created
