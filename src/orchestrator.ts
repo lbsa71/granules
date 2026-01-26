@@ -2,6 +2,8 @@ import { GranuleStore } from "./store.js";
 import { startMcpHttpServer } from "./server.js";
 import { spawnWorker } from "./worker.js";
 import type { ChildProcess } from "child_process";
+import { readdirSync, unlinkSync, mkdirSync } from "fs";
+import { join } from "path";
 
 const MAX_WORKERS = 3;
 const LOOP_INTERVAL_MS = 5000;
@@ -33,6 +35,9 @@ export class Orchestrator {
   }
 
   async start(): Promise<void> {
+    // Clean up old logs
+    this.cleanupLogs();
+
     // Start MCP server
     if (!this.serverStarted) {
       await startMcpHttpServer(this.store);
@@ -44,7 +49,7 @@ export class Orchestrator {
     if (granules.length === 0) {
       this.store.createGranule(
         "plan",
-        "Read @README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
+        "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
       );
       console.log("Created bootstrap plan granule");
     }
@@ -77,6 +82,22 @@ export class Orchestrator {
     this.activeWorkers.clear();
 
     console.log("Orchestrator stopped");
+  }
+
+  private cleanupLogs(): void {
+    const logsDir = join(process.cwd(), "logs");
+    try {
+      mkdirSync(logsDir, { recursive: true });
+      const files = readdirSync(logsDir);
+      for (const file of files) {
+        if (file.startsWith("worker-")) {
+          unlinkSync(join(logsDir, file));
+        }
+      }
+      console.log(`Cleaned up ${files.length} old log files`);
+    } catch (error) {
+      console.warn("Could not clean up logs:", error);
+    }
   }
 
   private tick(): void {
