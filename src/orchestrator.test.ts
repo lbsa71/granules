@@ -12,6 +12,11 @@ vi.mock("./worker.js", () => ({
   })),
 }));
 
+// Avoid binding to port in tests
+vi.mock("./server.js", () => ({
+  startMCPServer: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("Orchestrator", () => {
   let store: GranuleStore;
   let orchestrator: Orchestrator;
@@ -32,7 +37,8 @@ describe("Orchestrator", () => {
     const granules = store.listGranules();
     expect(granules).toHaveLength(1);
     expect(granules[0].class).toBe("plan");
-    expect(granules[0].content).toContain("plan the implementation");
+    expect(granules[0].content).toContain("gap analysis");
+    expect(granules[0].content).toContain("Implemented");
   });
 
   it("should not create bootstrap granule if granules exist", async () => {
@@ -57,5 +63,28 @@ describe("Orchestrator", () => {
     orchestrator["tick"]();
     const updated = store.getGranule(granule.id);
     expect(updated?.state).toBe("unclaimed");
+  });
+
+  it("should run onExitCondition with content and stop when an Implemented granule exists", async () => {
+    const onExitCondition = vi.fn();
+    store.createGranule("Implemented", "Final assessment: project complete.");
+    const orch = new Orchestrator(store, { onExitCondition });
+
+    await orch.start();
+
+    expect(onExitCondition).toHaveBeenCalledOnce();
+    expect(onExitCondition).toHaveBeenCalledWith("Final assessment: project complete.");
+  });
+
+  it("should not spawn workers for Implemented granules", async () => {
+    const { spawnWorker } = await import("./worker.js");
+    vi.mocked(spawnWorker).mockClear();
+
+    store.createGranule("Implemented", "Done.");
+    orchestrator = new Orchestrator(store);
+
+    await orchestrator.start();
+
+    expect(spawnWorker).not.toHaveBeenCalled();
   });
 });

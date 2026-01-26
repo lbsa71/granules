@@ -3,7 +3,14 @@ import { Orchestrator } from "./orchestrator.js";
 
 async function main() {
   const store = new GranuleStore();
-  const orchestrator = new Orchestrator(store);
+  const orchestrator = new Orchestrator(store, {
+    onExitCondition: (report) => {
+      console.log("\n--- Final report ---\n");
+      console.log(report);
+      console.log("\n---\n");
+      process.exit(0);
+    },
+  });
 
   // Handle graceful shutdown
   process.on("SIGINT", () => {

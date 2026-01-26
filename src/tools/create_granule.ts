@@ -10,7 +10,7 @@ export function createGranuleTool(store: GranuleStore) {
       properties: {
         class: {
           type: "string",
-          enum: ["explore", "plan", "implement", "test", "review", "consolidate"],
+          enum: ["explore", "plan", "implement", "test", "review", "consolidate", "Implemented"],
         },
         content: {
           type: "string",

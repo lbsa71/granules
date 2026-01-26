@@ -4,7 +4,8 @@ export type GranuleClass =
   | "implement"    // Write/modify code (artifacts)
   | "test"         // Write or run tests
   | "review"       // Critique another worker's output
-  | "consolidate"; // Merge work from multiple workers
+  | "consolidate"  // Merge work from multiple workers
+  | "Implemented"; // Exit condition: orchestrator stops and outputs content as final report
 
 export type GranuleState =
   | "unclaimed"    // Available for pickup

@@ -14,15 +14,22 @@ interface ActiveWorker {
   startedAt: number;
 }
 
+export interface OrchestratorOptions {
+  /** When a granule with class "Implemented" exists, called with its content; orchestrator stops. */
+  onExitCondition?: (report: string) => void;
+}
+
 export class Orchestrator {
   private store: GranuleStore;
   private activeWorkers: Map<string, ActiveWorker> = new Map();
   private nextWorkerId: number = 1;
   private loopInterval?: NodeJS.Timeout;
   private serverStarted: boolean = false;
+  private onExitCondition?: (report: string) => void;
 
-  constructor(store: GranuleStore) {
+  constructor(store: GranuleStore, options?: OrchestratorOptions) {
     this.store = store;
+    this.onExitCondition = options?.onExitCondition;
   }
 
   async start(): Promise<void> {
@@ -37,7 +44,7 @@ export class Orchestrator {
     if (granules.length === 0) {
       this.store.createGranule(
         "plan",
-        "Read README.md and plan the implementation of GRANULES"
+        "Read @README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
       );
       console.log("Created bootstrap plan granule");
     }
@@ -73,6 +80,14 @@ export class Orchestrator {
   }
 
   private tick(): void {
+    // Exit condition: any granule with class "Implemented" stops the orchestrator and reports its content
+    const implemented = this.store.listGranules().find((g) => g.class === "Implemented");
+    if (implemented) {
+      this.stop();
+      this.onExitCondition?.(implemented.content);
+      return;
+    }
+
     // Release stale claims
     const released = this.store.releaseStaleClaims(STALE_CLAIM_TIMEOUT_MS);
     if (released > 0) {
@@ -82,8 +97,10 @@ export class Orchestrator {
     // Clean up completed workers
     this.cleanupCompletedWorkers();
 
-    // Get unclaimed granules
-    const unclaimed = this.store.listGranules().filter((g) => g.state === "unclaimed");
+    // Get unclaimed granules (exclude "Implemented" — those are exit signals, not work)
+    const unclaimed = this.store
+      .listGranules()
+      .filter((g) => g.state === "unclaimed" && g.class !== "Implemented");
 
     // Spawn workers for unclaimed granules (up to MAX_WORKERS)
     const availableSlots = MAX_WORKERS - this.activeWorkers.size;
