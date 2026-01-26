@@ -1,31 +1,13 @@
-import type { ChildProcess } from "child_process";
-import { writeFileSync, mkdirSync, createWriteStream } from "fs";
-import { createRequire } from "module";
+import { spawn, type ChildProcess } from "child_process";
+import { writeFileSync, mkdirSync, createWriteStream, unlinkSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
 import type { Granule } from "./types.js";
-
-const require = createRequire(import.meta.url);
 
 /** Hardcoded default path for claude. Override with GRANULES_WORKER_CMD. */
 const CLAUDE_PATH = "/Users/stefan/.local/bin/claude";
 
-const pty = require("node-pty") as {
-  spawn(
-    file: string,
-    args: string[],
-    opts: { name: string; cols: number; rows: number; cwd: string; env: Record<string, string> }
-  ): { onData(cb: (data: string) => void): void; onExit(cb: (e: { exitCode: number; signal?: number }) => void): void; kill(signal?: string): void };
-};
-
-/** Adapter so orchestrator can treat our pty like a ChildProcess. */
-interface ProcessAdapter {
-  on(event: string, handler: (...args: unknown[]) => void): void;
-  kill(signal?: string): void;
-  exitCode: number | null;
-  killed: boolean;
-}
-
-export function spawnWorker(workerId: string, granule: Granule): ChildProcess & ProcessAdapter {
+export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   // Ensure logs directory exists
   const logsDir = join(process.cwd(), "logs");
   try {
@@ -62,74 +44,62 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess & 
 
   writeLog({ output: "" });
 
-  // GRANULES_WORKER_CMD overrides; otherwise CLAUDE_PATH
-  const cmdSpec = workerCmd;
-  const cmdParts = cmdSpec.split(/\s+/);
-  const executable = cmdParts[0]!;
-  const leadingArgs = cmdParts.length > 1 ? cmdParts.slice(1) : [];
-
-  const args = [
-    ...leadingArgs,
-    "--mcp-config", "./mcp-config.json",
-    "--output-format", "json",
-    "-p", prompt,
-  ];
+  // Avoid huge argv (ARG_MAX): write invoker script to temp file, run shell -l <script>.
+  const shell = process.env.SHELL || "/bin/bash";
+  const claudeExe = workerCmd.split(/\s+/)[0]!;
+  const extra = workerCmd.split(/\s+/).slice(1);
+  const esc = (s: string) => s.replace(/'/g, "'\"'\"'");
+  const scriptPath = join(tmpdir(), `granules-${workerId}-${Date.now()}.sh`);
+  const extraArg = extra.length ? " " + extra.map((a) => "'" + esc(a) + "'").join(" ") : "";
+  const scriptBody = `#!${shell}
+exec '${esc(claudeExe)}'${extraArg} --mcp-config ./mcp-config.json --output-format json -p '${esc(prompt)}'
+`;
+  writeFileSync(scriptPath, scriptBody, { mode: 0o700 });
 
   let output = "";
-  let exitCode: number | null = null;
-  let killed = false;
-  const exitListeners: ((code: number | null) => void)[] = [];
-  const errorListeners: ((err: Error) => void)[] = [];
-  type PtyHandle = { onData(cb: (data: string) => void): void; onExit(cb: (e: { exitCode: number; signal?: number }) => void): void; kill(signal?: string): void };
-  let ptyProcess: PtyHandle | null = null;
 
-  try {
-    ptyProcess = pty.spawn(executable, args, {
-      name: "xterm-256color",
-      cols: 120,
-      rows: 30,
-      cwd: process.cwd(),
-      env: process.env as Record<string, string>,
-    });
+  streamLog.write(`[${iso()}] Spawning: ${shell} -l ${scriptPath}\n`);
+  const cp = spawn(shell, ["-l", scriptPath], {
+    stdio: ["ignore", "pipe", "pipe"],
+    cwd: process.cwd(),
+    env: { ...process.env },
+  });
 
-    ptyProcess.onData((data: string) => {
-      output += data;
-      streamLog.write(data);
-    });
+  cp.stdout?.on("data", (d: Buffer) => {
+    const s = d.toString();
+    output += s;
+    streamLog.write(s);
+  });
+  cp.stderr?.on("data", (d: Buffer) => {
+    const s = d.toString();
+    output += s;
+    streamLog.write(s);
+  });
 
-    ptyProcess.onExit((e: { exitCode: number; signal?: number }) => {
-      exitCode = e.exitCode;
-      streamLog.write(`\n[${iso()}] Process exited with code ${e.exitCode}\n`);
-      streamLog.end();
-      writeLog({ output, exitedAt: Date.now(), exitCode: e.exitCode });
-      exitListeners.forEach((cb) => cb(e.exitCode));
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    streamLog.write(`[${iso()}] Spawn error: ${msg}\n`);
+  cp.on("exit", (code, signal) => {
+    try {
+      unlinkSync(scriptPath);
+    } catch {
+      /* ignore */
+    }
+    streamLog.write(`\n[${iso()}] Process exited${code != null ? ` with code ${code}` : signal ? ` (signal ${signal})` : ""}\n`);
     streamLog.end();
-    writeLog({ output: "", error: msg, exitedAt: Date.now() });
-    errorListeners.forEach((cb) => cb(err instanceof Error ? err : new Error(msg)));
-  }
+    writeLog({ output, exitedAt: Date.now(), exitCode: code ?? undefined });
+  });
 
-  const adapter: ProcessAdapter = {
-    on(event: string, handler: (...args: unknown[]) => void) {
-      if (event === "exit") exitListeners.push(handler as (code: number | null) => void);
-      if (event === "error") errorListeners.push(handler as (err: Error) => void);
-    },
-    kill(signal?: string) {
-      killed = true;
-      ptyProcess?.kill(signal);
-    },
-    get exitCode() {
-      return exitCode;
-    },
-    get killed() {
-      return killed;
-    },
-  };
+  cp.on("error", (err) => {
+    try {
+      unlinkSync(scriptPath);
+    } catch {
+      /* ignore */
+    }
+    const msg = String(err);
+    streamLog.write(`[${iso()}] Process error: ${msg}\n`);
+    streamLog.end();
+    writeLog({ output, error: msg, exitedAt: Date.now() });
+  });
 
-  return adapter as ChildProcess & ProcessAdapter;
+  return cp;
 }
 
 function generateWorkerPrompt(workerId: string, granule: Granule): string {
