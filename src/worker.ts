@@ -52,7 +52,7 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const scriptPath = join(tmpdir(), `granules-${workerId}-${Date.now()}.sh`);
   const extraArg = extra.length ? " " + extra.map((a) => "'" + esc(a) + "'").join(" ") : "";
   const scriptBody = `#!${shell}
-exec '${esc(claudeExe)}'${extraArg} --mcp-config ./mcp-config.json --output-format json -p '${esc(prompt)}'
+exec '${esc(claudeExe)}'${extraArg} --model sonnet --mcp-config ./mcp-config.json --output-format json -p '${esc(prompt)}'
 `;
   writeFileSync(scriptPath, scriptBody, { mode: 0o700 });
 
@@ -108,8 +108,6 @@ Your task is to implement the following item of work, called a 'granule':
 - ID: ${granule.id}
 - Class: ${granule.class}
 - Content: ${granule.content}
-
-Connect to MCP server at http://localhost:3000
 
 Instructions:
 1. First, switch to and git pull the latest main branch from the repository.

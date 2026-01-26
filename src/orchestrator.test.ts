@@ -14,7 +14,7 @@ vi.mock("./worker.js", () => ({
 
 // Avoid binding to port in tests
 vi.mock("./server.js", () => ({
-  startMCPServer: vi.fn().mockResolvedValue(undefined),
+  startMcpHttpServer: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("Orchestrator", () => {

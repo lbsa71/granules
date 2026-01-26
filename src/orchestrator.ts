@@ -1,5 +1,5 @@
 import { GranuleStore } from "./store.js";
-import { startMCPServer } from "./server.js";
+import { startMcpHttpServer } from "./server.js";
 import { spawnWorker } from "./worker.js";
 import type { ChildProcess } from "child_process";
 
@@ -35,7 +35,7 @@ export class Orchestrator {
   async start(): Promise<void> {
     // Start MCP server
     if (!this.serverStarted) {
-      await startMCPServer(this.store);
+      await startMcpHttpServer(this.store);
       this.serverStarted = true;
     }
 
