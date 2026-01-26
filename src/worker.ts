@@ -113,14 +113,14 @@ Your task is to implement the following item of work, called a 'granule':
 CRITICAL: Execute tools ONE AT A TIME. Never make multiple tool calls in a single turn.
 
 Instructions:
-1. Familiarize yourself with the project and the codebase as needed. There should always be:
+1. FIRST ACTION: Call claim_granule with your worker ID and granule ID. Do this before any other action.
+2. After claiming, familiarize yourself with the project and the codebase as needed. There should always be:
   - a README.md in the root of the repository, and in the folder of every subsystem. This should follow best practices for README.md files.
   - There should always be an ARCITECTURE.md and a CONTRIBUTING.md file in the root.
   - The CLAUDE.md file in the root should contain the rules for the worker.
   - All documentation files should be in full correspondance.
-2. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
-3. If you are not able to complete the work, call release_granule with your worker ID and granule ID, and exit.
-4. If you agree to implementing the work, call claim_granule with your worker ID and granule ID.
+3. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
+4. If you are not able to complete the work, call release_granule with your worker ID and granule ID, and exit.
 5. If the work consists of file artifact changes:
    a. git checkout a new branch for the work. This should be called "worker-${workerId}-granule-${granule.id}".
    b. Identify the smallest set of changes that are necessary to complete the work.
