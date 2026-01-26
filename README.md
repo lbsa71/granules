@@ -1,37 +1,149 @@
-GRANULES is a minimal orchestrator for work.
+# GRANULES
 
-When the central orchestrator is launched, it starts up an MCP (Model Context Protocol) http server, using  
+Minimal multi-agent orchestrator. An MCP server holds work items (granules). Claude Code CLI instances act as workers that claim and complete granules.
 
-import { MCPTool } from "mcp-framework";
-import { z } from "zod";
+## Design Principles
 
-(See https://mcp-framework.com/docs/http-quickstart/ for reference)
+- **Self-building**: GRANULES bootstraps itself - the first worker plans, subsequent workers implement
+- **Atomic claims**: Only one worker can claim a granule; claim fails if already taken
+- **Summaries enable coordination**: Completed granules include summaries so workers can understand prior work
 
-The MCP server keeps track of work, called 'granules', in an in-memory lookup, and exposes tools for CRUD manipulation of these.
+## Architecture
 
-Having launched the mcp server, the orchestrator then queries the MCP server for granules. If there are no granules, a template bootstrap granule with the content "Read README and plan implementation" is added, and the granules are re-read.
+```
+┌─────────────┐      ┌─────────────┐
+│ Orchestrator│──────│ MCP Server  │
+│   (loop)    │      │ (in-memory) │
+└──────┬──────┘      └──────┬──────┘
+       │                    │
+       │ spawns             │ tools
+       ▼                    ▼
+┌─────────────┐      ┌─────────────┐
+│  Worker W-1 │─────▶│  Worker W-2 │ ...
+│ (claude cli)│      │ (claude cli)│
+└─────────────┘      └─────────────┘
+```
 
-Granules have 'granule id' which is just an autoincremented identifier like "G-1"
+## Granule Schema
 
-For each 'unclaimed' granule, the orchestrator starts a claude code cli process, with a prompt containing a process id, if the form of "W-1" where the number increments with every process launch, the granule and some temeplate instructions.
+```typescript
+interface Granule {
+  id: string;           // "G-1", "G-2", auto-incremented
+  class: GranuleClass;
+  content: string;      // Task description
+  state: GranuleState;
+  claimedBy?: string;   // Worker ID, e.g., "W-1"
+  claimedAt?: number;   // Unix timestamp ms
+  createdAt: number;
+  completedAt?: number;
+  summary?: string;     // Completion summary, used for coordination
+}
 
-The claude code cli JSON output should be logged to a per-worker file for monitoring. 
+type GranuleClass =
+  | "explore"      // Understand codebase/context
+  | "plan"         // Design implementation approach
+  | "implement"    // Write/modify code (artifacts)
+  | "test"         // Write or run tests
+  | "review"       // Critique another worker's output
+  | "consolidate"; // Merge work from multiple workers
 
-There should be an MCP tool for 'claiming' a granule, to lessen overlap. This on the form "claim: process id, granule id" 
+type GranuleState =
+  | "unclaimed"    // Available for pickup
+  | "claimed"      // Reserved by a worker
+  | "completed";   // Finished
+```
 
-A worker can also 'release' a granule to unclaim it, as well as submit and delete granules.
+## MCP Tools
 
-It is important to timestamp granule claims to identify crashed processes or deadlocks.
+Server runs on `http://localhost:3000` using mcp-framework.
 
-Granules can be of certain classes: 
-Update Artifact
-Critique Architecture
-Consolidate Work (Merge the work of two workers)
+| Tool | Input | Output | Description |
+|------|-------|--------|-------------|
+| `list_granules` | - | `Granule[]` | Get all granules |
+| `create_granule` | `{class, content}` | `Granule` | Create new granule |
+| `claim_granule` | `{granuleId, workerId}` | `{success, granule?}` | Atomic claim; fails if already claimed |
+| `release_granule` | `{granuleId, workerId}` | `{success}` | Release claim |
+| `complete_granule` | `{granuleId, workerId, summary?}` | `{success}` | Mark done |
 
-They can be in these states:
-Unclaimed
-Claimed
-Working
-Awaiting Consolidation
+## Orchestrator Behavior
 
+```
+1. Start MCP server on localhost:3000
+2. Check for granules; if none, create bootstrap granule:
+   - class: "plan"
+   - content: "Read README.md and plan the implementation of GRANULES"
+3. Main loop (every 5s):
+   a. Fetch all granules
+   b. Release stale claims (claimedAt > 10 minutes ago)
+   c. For each unclaimed granule (up to MAX_WORKERS=3 active):
+      - Spawn claude code cli with worker prompt
+      - Worker ID: "W-{incrementing number}"
+   d. Log active workers and granule states
+```
 
+## Worker Prompt Template
+
+```
+You are Worker {workerId}.
+Your task granule:
+- ID: {granule.id}
+- Class: {granule.class}
+- Content: {granule.content}
+
+Connect to MCP server at http://localhost:3000
+
+Instructions:
+1. First, call claim_granule with your worker ID and granule ID
+2. Do the work described in the content
+3. You may call create_granule to spawn follow-up work
+4. When done, call complete_granule with a brief summary
+
+Available tools: list_granules, create_granule, claim_granule, release_granule, complete_granule
+```
+
+## Worker Spawning
+
+Orchestrator spawns workers using:
+```bash
+claude --mcp-config ./mcp-config.json --output-format json -p "{prompt}" > logs/worker-{workerId}.json
+```
+
+MCP config file (`mcp-config.json`):
+```json
+{
+  "mcpServers": {
+    "granules": {
+      "type": "http",
+      "url": "http://localhost:3000"
+    }
+  }
+}
+```
+
+## Worker Output
+
+Each worker logs JSON output to: `logs/worker-{workerId}.json`
+
+## Project Structure
+
+```
+granules/
+├── src/
+│   ├── index.ts        # Entry point, starts orchestrator
+│   ├── server.ts       # MCP server setup
+│   ├── tools/          # MCP tool implementations
+│   ├── orchestrator.ts # Main loop, worker spawning
+│   └── types.ts        # Granule types
+├── logs/               # Worker output logs
+├── package.json
+├── tsconfig.json
+├── README.md
+└── CLAUDE.md
+```
+
+## Running
+
+```bash
+npm install
+npm start
+```

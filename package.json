@@ -1,0 +1,28 @@
+{
+  "name": "granules",
+  "version": "1.0.0",
+  "description": "Minimal multi-agent orchestrator using MCP",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest",
+    "test:watch": "vitest --watch"
+  },
+  "keywords": ["mcp", "orchestrator", "multi-agent"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "supertest": "^6.3.3",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

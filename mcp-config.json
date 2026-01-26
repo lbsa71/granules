@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "granules": {
+      "type": "http",
+      "url": "http://localhost:3000"
+    }
+  }
+}

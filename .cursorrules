@@ -1,0 +1,96 @@
+# GRANULES Project Rules
+
+## Development Approach
+
+- **Always work TDD**: Identify the smallest valuable increment, follow red/green/refactor cycle
+- **Test-first**: Write tests before implementation
+- **Incremental**: Make small, focused changes that add value
+
+## Project Context
+
+- **Type**: Node.js/TypeScript project
+- **Purpose**: Minimal multi-agent orchestrator using MCP (Model Context Protocol)
+- **Architecture**: MCP server holds work items (granules), workers claim and complete them
+- **Testing**: Vitest for unit and integration tests
+
+## Code Style
+
+- **TypeScript**: Use strict mode, prefer type safety
+- **ES Modules**: Use ES2022 module syntax (`import`/`export`)
+- **Naming**: 
+  - Interfaces/types: PascalCase (e.g., `Granule`, `GranuleState`)
+  - Functions/variables: camelCase
+  - Constants: UPPER_SNAKE_CASE
+- **File structure**: Co-locate tests with source files (`.test.ts` suffix)
+
+## Architecture Patterns
+
+- **Granules**: Work items with states (unclaimed → claimed → completed)
+- **Atomic operations**: Claims must be atomic (fail if already claimed)
+- **MCP Tools**: Implement as separate modules in `src/tools/`
+- **Orchestrator**: Main loop manages worker spawning and granule lifecycle
+- **Store**: In-memory state management for granules
+
+## Testing Guidelines
+
+- **Test files**: Place alongside source files with `.test.ts` extension
+- **Coverage**: Test all MCP tools, orchestrator logic, and store operations
+- **TDD cycle**: 
+  1. Write failing test (red)
+  2. Implement minimal code to pass (green)
+  3. Refactor while keeping tests green
+- **Test granularity**: One test per behavior/edge case
+
+## MCP Server Patterns
+
+- **Tools**: Each tool in `src/tools/` exports a handler function
+- **Error handling**: Return structured responses with `success` boolean
+- **Validation**: Validate inputs before processing
+- **Atomicity**: Ensure claim operations are atomic (check-then-set pattern)
+
+## Worker & Orchestrator
+
+- **Worker IDs**: Format "W-{incrementing number}"
+- **Granule IDs**: Format "G-{incrementing number}"
+- **Stale claims**: Release claims older than 30 minutes
+- **Concurrency**: Support up to MAX_WORKERS (default 3) concurrent workers
+
+## Dependencies
+
+- **Runtime**: `@modelcontextprotocol/sdk`, `express`
+- **Dev**: `vitest`, `tsx`, `typescript`, `supertest`
+- **Build**: TypeScript compiler to `dist/`
+
+## File Organization
+
+```
+src/
+├── index.ts          # Entry point
+├── server.ts         # MCP server setup
+├── orchestrator.ts   # Main loop, worker spawning
+├── store.ts          # In-memory granule storage
+├── types.ts          # TypeScript type definitions
+├── worker.ts         # Worker-related utilities
+└── tools/            # MCP tool implementations
+    ├── create_granule.ts
+    ├── claim_granule.ts
+    ├── list_granules.ts
+    ├── release_granule.ts
+    ├── complete_granule.ts
+    └── index.ts
+```
+
+## When Making Changes
+
+1. **Start with a test**: Write or update test first (TDD)
+2. **Smallest increment**: Make the minimal change that adds value
+3. **Run tests**: Ensure all tests pass before moving on
+4. **Refactor**: Improve code quality while keeping tests green
+5. **Type safety**: Leverage TypeScript types, avoid `any`
+
+## Key Principles
+
+- **Self-building**: System bootstraps itself (first worker plans, others implement)
+- **Coordination**: Completed granules include summaries for worker coordination
+- **Atomicity**: Critical operations (claims) must be atomic
+- **Simplicity**: Keep implementation minimal and focused
