@@ -108,6 +108,10 @@ Orchestrator spawns workers using:
 claude --mcp-config ./mcp-config.json --output-format json -p "{prompt}" > logs/worker-{workerId}.json
 ```
 
+The worker command defaults to the result of `which claude` (or `where claude` on Windows). Override with **`GRANULES_WORKER_CMD`** if needed:
+- Full path: `GRANULES_WORKER_CMD=/opt/homebrew/bin/claude`
+- npx: `GRANULES_WORKER_CMD="npx --yes @anthropic-ai/claude-code"`
+
 MCP config file (`mcp-config.json`):
 ```json
 {

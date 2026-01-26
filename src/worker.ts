@@ -5,6 +5,10 @@ import { join } from "path";
 import type { Granule } from "./types.js";
 
 const require = createRequire(import.meta.url);
+
+/** Hardcoded default path for claude. Override with GRANULES_WORKER_CMD. */
+const CLAUDE_PATH = "/Users/stefan/.local/bin/claude";
+
 const pty = require("node-pty") as {
   spawn(
     file: string,
@@ -40,7 +44,9 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess & 
 
   const streamLog = createWriteStream(logStreamPath, { flags: "w" });
   const iso = () => new Date().toISOString();
+  const workerCmd = process.env.GRANULES_WORKER_CMD?.trim() || CLAUDE_PATH;
   streamLog.write(`[${iso()}] Worker ${workerId} started for granule ${granule.id}\n`);
+  streamLog.write(`[${iso()}] Using claude at: ${workerCmd}\n`);
 
   function writeLog(extra: { output?: string; error?: string; exitedAt?: number; exitCode?: number | null }) {
     try {
@@ -56,7 +62,14 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess & 
 
   writeLog({ output: "" });
 
+  // GRANULES_WORKER_CMD overrides; otherwise CLAUDE_PATH
+  const cmdSpec = workerCmd;
+  const cmdParts = cmdSpec.split(/\s+/);
+  const executable = cmdParts[0]!;
+  const leadingArgs = cmdParts.length > 1 ? cmdParts.slice(1) : [];
+
   const args = [
+    ...leadingArgs,
     "--mcp-config", "./mcp-config.json",
     "--output-format", "json",
     "-p", prompt,
@@ -71,7 +84,7 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess & 
   let ptyProcess: PtyHandle | null = null;
 
   try {
-    ptyProcess = pty.spawn("claude", args, {
+    ptyProcess = pty.spawn(executable, args, {
       name: "xterm-256color",
       cols: 120,
       rows: 30,
