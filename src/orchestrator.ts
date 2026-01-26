@@ -97,10 +97,20 @@ export class Orchestrator {
     // Clean up completed workers
     this.cleanupCompletedWorkers();
 
-    // Get unclaimed granules (exclude "Implemented" — those are exit signals, not work)
+    // Granules that already have a worker assigned (avoid spawning twice for same granule)
+    const assignedGranuleIds = new Set(
+      [...this.activeWorkers.values()].map((w) => w.granuleId)
+    );
+
+    // Get unclaimed granules (exclude "Implemented" and ones we're already working on)
     const unclaimed = this.store
       .listGranules()
-      .filter((g) => g.state === "unclaimed" && g.class !== "Implemented");
+      .filter(
+        (g) =>
+          g.state === "unclaimed" &&
+          g.class !== "Implemented" &&
+          !assignedGranuleIds.has(g.id)
+      );
 
     // Spawn workers for unclaimed granules (up to MAX_WORKERS)
     const availableSlots = MAX_WORKERS - this.activeWorkers.size;

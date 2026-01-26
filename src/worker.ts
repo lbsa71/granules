@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "child_process";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, createWriteStream } from "fs";
 import { join } from "path";
 import type { Granule } from "./types.js";
 
@@ -15,8 +15,28 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   // Generate worker prompt
   const prompt = generateWorkerPrompt(workerId, granule);
 
-  // Log file path
-  const logFile = join(logsDir, `worker-${workerId}.json`);
+  // Log paths: .json for final metadata, .log for streaming (tail -f)
+  const logJsonPath = join(logsDir, `worker-${workerId}.json`);
+  const logStreamPath = join(logsDir, `worker-${workerId}.log`);
+  const startedAt = Date.now();
+
+  const streamLog = createWriteStream(logStreamPath, { flags: "w" });
+
+  function writeLog(extra: { output?: string; error?: string; exitedAt?: number; exitCode?: number | null }) {
+    try {
+      const log = {
+        workerId,
+        granuleId: granule.id,
+        startedAt,
+        ...extra,
+      };
+      writeFileSync(logJsonPath, JSON.stringify(log, null, 2), { flag: "w" });
+    } catch (e) {
+      console.error(`Failed to write log file for ${workerId}:`, e);
+    }
+  }
+
+  writeLog({ output: "" });
 
   // Spawn Claude CLI process
   const args = [
@@ -32,23 +52,26 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  // Collect output for logging
+  // Collect output and stream to .log for tail -f
   let output = "";
-  
-  childProcess.stdout.on("data", (data) => {
-    output += data.toString();
+
+  function append(data: Buffer | string) {
+    const s = typeof data === "string" ? data : data.toString();
+    output += s;
+    streamLog.write(s);
+  }
+
+  childProcess.stdout.on("data", append);
+  childProcess.stderr.on("data", append);
+
+  childProcess.on("error", (err) => {
+    streamLog.end();
+    writeLog({ output, error: String(err), exitedAt: Date.now() });
   });
 
-  childProcess.stderr.on("data", (data) => {
-    output += data.toString();
-  });
-
-  childProcess.on("exit", () => {
-    try {
-      writeFileSync(logFile, output, { flag: "w" });
-    } catch (error) {
-      console.error(`Failed to write log file for ${workerId}:`, error);
-    }
+  childProcess.on("exit", (code) => {
+    streamLog.end();
+    writeLog({ output, exitedAt: Date.now(), exitCode: code ?? undefined });
   });
 
   return childProcess;
