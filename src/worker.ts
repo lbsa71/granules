@@ -103,17 +103,31 @@ exec '${esc(claudeExe)}'${extraArg} --model sonnet --mcp-config ./mcp-config.jso
 }
 
 function generateWorkerPrompt(workerId: string, granule: Granule): string {
-  return `You are an autonomous worker. Your only job is to claim this granule, do the work, and complete it.
+  return `You are Worker ${workerId}.
 
-Granule: ${granule.id}
-Worker: ${workerId}
-Task: ${granule.content}
+Your task is to implement the following item of work, called a 'granule':
+- ID: ${granule.id}
+- Class: ${granule.class}
+- Content: ${granule.content}
 
 CRITICAL: Execute tools ONE AT A TIME. Never make multiple tool calls in a single turn.
 
-First action: Call claim_granule with these exact parameters:
-- granuleId: "${granule.id}"
-- workerId: "${workerId}"
+Instructions:
+1. Familiarize yourself with the project and the codebase as needed.
+2. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
+3. If you are not able to complete the work, call release_granule with your worker ID and granule ID, and exit.
+4. If you agree to implementing the work, call claim_granule with your worker ID and granule ID.
+5. If the work consists of file artifact changes:
+   a. git checkout a new branch for the work. This should be called "worker-${workerId}-granule-${granule.id}".
+   b. Identify the smallest set of changes that are necessary to complete the work.
+   c. Make the changes in a TDD manner; test for the negative, then implement the positive.
+   d. Refactor and restructure as necessary. Create followup granules if necessary.
+   e. git add, commit, and push the changes.
+   f. Call create_granule to spawn a consolidate granule with the content 'Fold branch "worker-${workerId}-granule-${granule.id}" into main, solving conflicts as necessary.'.
+6. All other work, such as planning, architecting, review, critique and other non-filesystem changes:
+   a. Identify the smallest set of changes that are necessary to complete the work.
+   b. Post a new granule containing the identified needed change.
+7. When done, call complete_granule with a brief summary of the work done.
 
-After claiming, do the work. When done, call complete_granule with a summary.`;
+Available MCP tools: list_granules, create_granule, claim_granule, release_granule, complete_granule`;
 }
