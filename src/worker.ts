@@ -112,24 +112,26 @@ Your task is to implement the following item of work, called a 'granule':
 
 Instructions:
 1. FIRST ACTION: Claim this granule using your worker ID (${workerId}) and granule ID (${granule.id}). Do this before any other action.
-2. After claiming, familiarize yourself with the project and the codebase as needed. There MUST always be:
-  - a README.md in the root of the repository, and in the folder of every subsystem. This should follow best practices for README.md files.
-  - an ARCITECTURE.md and a CONTRIBUTING.md file in the root.
-  - a CLAUDE.md file in the root that contain the rules for the worker.
-  - full correspondance between the documentation files.
-3. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
-4. If you are not able to complete the work, release the granule back to the queue and exit.
-5. If the work consists of file artifact additions or changes:
+2. After claiming, familiarize yourself with the project and the codebase as needed.
+3. MANDATORY DOCUMENTATION CHECK: Read each of the following files. If missing, incomplete or out of date, create a granule to update it:
+   - README.md (root and each subsystem folder)
+   - ARCHITECTURE.md
+   - CONTRIBUTING.md
+   - CLAUDE.md
+4. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
+5. If you are not able to complete the work, release the granule back to the queue and exit.
+6. If the work consists of file artifact additions or changes:
    a. git checkout a new branch for the work. This should be called "worker-${workerId}-granule-${granule.id}".
    b. Identify the smallest set of changes that are necessary to complete the work.
    c. Make the changes in a TDD manner; test for the negative, then implement the positive.
-   d. Refactor and restructure as necessary. Create followup granules if necessary.
+   d. Refactor and restructure as necessary.
    e. git add, commit, and push the changes.
    f. Create a new consolidate granule with the content 'Fold branch "worker-${workerId}-granule-${granule.id}" into main, solving conflicts as necessary.'.
-6. All other work, such as planning, architecting, review, critique and other non-filesystem changes:
+7. All other work, such as planning, architecting, review, critique and other non-filesystem changes:
    a. Identify the smallest set of changes that are necessary to complete the work.
    b. Create a new granule containing the identified needed change.
-7. When done, mark the granule as complete with a brief summary of the work done.
+8. BEFORE marking complete: Verify you have created granules for ALL identified gaps, missing docs, or follow-up work. Listing problems without creating granules is a failure mode.
+9. When done, mark the granule as complete with a brief summary including the list of granules you created.
 
 You have access to the granule management system which allows you to:
 - List all available granules in the work queue
