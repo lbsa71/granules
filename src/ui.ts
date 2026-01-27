@@ -14,6 +14,7 @@ interface UIState {
     unclaimed: number;
     claimed: number;
     completed: number;
+    failed: number;
     total: number;
   };
   implementedReport?: string;
@@ -70,9 +71,10 @@ export function renderUI(state: UIState): void {
   console.log();
 
   // Granule stats
-  const { unclaimed, claimed, completed, total } = state.granules;
+  const { unclaimed, claimed, completed, failed, total } = state.granules;
   const implStatus = state.implementedReport ? "\x1B[32m✓ IMPLEMENTED\x1B[0m" : "\x1B[33m◌ in progress\x1B[0m";
-  console.log(`\x1B[1mStatus:\x1B[0m ${implStatus}  │  \x1B[33m${unclaimed} queued\x1B[0m  │  \x1B[34m${claimed} claimed\x1B[0m  │  \x1B[32m${completed} done\x1B[0m  │  ${total} total`);
+  const failedStr = failed > 0 ? `  │  \x1B[31m${failed} failed\x1B[0m` : "";
+  console.log(`\x1B[1mStatus:\x1B[0m ${implStatus}  │  \x1B[33m${unclaimed} queued\x1B[0m  │  \x1B[34m${claimed} claimed\x1B[0m  │  \x1B[32m${completed} done\x1B[0m${failedStr}  │  ${total} total`);
   console.log();
 
   if (state.workers.length === 0) {
@@ -106,7 +108,7 @@ export class UIManager {
   private inputLine: string = "";
   private currentState: UIState = {
     workers: [],
-    granules: { unclaimed: 0, claimed: 0, completed: 0, total: 0 },
+    granules: { unclaimed: 0, claimed: 0, completed: 0, failed: 0, total: 0 },
     inputLine: "",
   };
 
@@ -203,12 +205,17 @@ export class UIManager {
 
     const implemented = granules.find((g) => g.class === "Implemented");
 
+    const MAX_RETRIES = 3;
+    const failed = granules.filter((g) => g.state === "unclaimed" && (g.retryCount ?? 0) >= MAX_RETRIES).length;
+    const unclaimed = granules.filter((g) => g.state === "unclaimed" && (g.retryCount ?? 0) < MAX_RETRIES).length;
+
     this.currentState = {
       workers: workerInfos,
       granules: {
-        unclaimed: granules.filter((g) => g.state === "unclaimed").length,
+        unclaimed,
         claimed: granules.filter((g) => g.state === "claimed").length,
         completed: granules.filter((g) => g.state === "completed").length,
+        failed,
         total: granules.length,
       },
       implementedReport: implemented?.content,

@@ -43,7 +43,7 @@ export class GranuleStore {
     return { success: true, granule: { ...granule } };
   }
 
-  releaseGranule(granuleId: string, workerId: string): { success: boolean } {
+  releaseGranule(granuleId: string, workerId: string, error?: string): { success: boolean } {
     const granule = this.granules.get(granuleId);
     if (!granule) {
       return { success: false };
@@ -56,6 +56,12 @@ export class GranuleStore {
     granule.state = "unclaimed";
     granule.claimedBy = undefined;
     granule.claimedAt = undefined;
+
+    // Track retries if this was a failure
+    if (error) {
+      granule.retryCount = (granule.retryCount ?? 0) + 1;
+      granule.lastError = error;
+    }
 
     return { success: true };
   }

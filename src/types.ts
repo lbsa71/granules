@@ -22,4 +22,6 @@ export interface Granule {
   createdAt: number;
   completedAt?: number;
   summary?: string;     // Completion summary, used for coordination
+  retryCount?: number;  // Number of times this granule has been retried after failure
+  lastError?: string;   // Last error message if worker failed
 }

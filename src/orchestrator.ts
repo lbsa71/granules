@@ -9,6 +9,7 @@ import { join } from "path";
 const MAX_WORKERS = 3;
 const LOOP_INTERVAL_MS = 5000;
 const STALE_CLAIM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_RETRIES = 3;
 
 interface ActiveWorker {
   workerId: string;
@@ -117,12 +118,13 @@ export class Orchestrator {
       [...this.activeWorkers.values()].map((w) => w.granuleId)
     );
 
-    // Get unclaimed granules
+    // Get unclaimed granules (skip ones that exceeded max retries)
     const spawnableGranules = this.store.listGranules().filter(
       (g) =>
         g.state === "unclaimed" &&
         g.class !== "Implemented" &&
-        !assignedGranuleIds.has(g.id)
+        !assignedGranuleIds.has(g.id) &&
+        (g.retryCount ?? 0) < MAX_RETRIES
     );
 
     // Spawn workers for unclaimed granules (up to MAX_WORKERS)
@@ -173,15 +175,23 @@ export class Orchestrator {
       this.activeWorkers.set(workerId, activeWorker);
 
       // Handle process completion
-      process.on("exit", () => {
+      process.on("exit", (code) => {
         this.activeWorkers.delete(workerId);
+        // If worker exited with error, release the granule for retry
+        if (code !== 0) {
+          this.store.releaseGranule(granuleId, workerId, `Worker exited with code ${code}`);
+        }
       });
 
-      process.on("error", () => {
+      process.on("error", (err) => {
         this.activeWorkers.delete(workerId);
+        // Release granule on spawn error
+        this.store.releaseGranule(granuleId, workerId, `Worker error: ${err.message}`);
       });
-    } catch {
-      // Worker spawn failed - will be visible in UI as missing worker
+    } catch (err) {
+      // Worker spawn failed - release granule
+      const msg = err instanceof Error ? err.message : String(err);
+      this.store.releaseGranule(granuleId, workerId, `Spawn failed: ${msg}`);
     }
   }
 }
