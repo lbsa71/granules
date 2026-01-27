@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from "child_process";
-import { writeFileSync, mkdirSync, createWriteStream, unlinkSync } from "fs";
+import { spawn, execSync, type ChildProcess } from "child_process";
+import { writeFileSync, mkdirSync, createWriteStream, unlinkSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import type { Granule } from "./types.js";
@@ -29,6 +29,23 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const workerCmd = process.env.GRANULES_WORKER_CMD?.trim() || CLAUDE_PATH;
   streamLog.write(`[${iso()}] Worker ${workerId} started for granule ${granule.id}\n`);
   streamLog.write(`[${iso()}] Using claude at: ${workerCmd}\n`);
+
+  // Create git worktree for isolated working directory
+  const branchName = `worker-${workerId}-granule-${granule.id}`;
+  const worktreesDir = join(process.cwd(), ".worktrees");
+  const worktreePath = join(worktreesDir, branchName);
+  try {
+    mkdirSync(worktreesDir, { recursive: true });
+    execSync(`git worktree add -b "${branchName}" "${worktreePath}"`, {
+      cwd: process.cwd(),
+      stdio: "pipe",
+    });
+    streamLog.write(`[${iso()}] Created worktree at: ${worktreePath}\n`);
+  } catch (err) {
+    streamLog.write(`[${iso()}] Failed to create worktree: ${err}\n`);
+    streamLog.end();
+    throw err;
+  }
 
   function writeLog(extra: { output?: string; error?: string; exitedAt?: number; exitCode?: number | null }) {
     try {
@@ -61,7 +78,7 @@ exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config ./mcp-config.json 
   streamLog.write(`[${iso()}] Spawning: ${shell} -l ${scriptPath}\n`);
   const cp = spawn(shell, ["-l", scriptPath], {
     stdio: ["ignore", "pipe", "pipe"],
-    cwd: process.cwd(),
+    cwd: worktreePath,
     env: { ...process.env },
   });
 
@@ -76,23 +93,38 @@ exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config ./mcp-config.json 
     streamLog.write(s);
   });
 
-  cp.on("exit", (code, signal) => {
+  const cleanup = () => {
     try {
       unlinkSync(scriptPath);
     } catch {
       /* ignore */
     }
+    // Remove worktree (keep branch for PR)
+    try {
+      execSync(`git worktree remove "${worktreePath}" --force`, {
+        cwd: process.cwd(),
+        stdio: "pipe",
+      });
+    } catch {
+      // Fallback: just delete the directory
+      try {
+        rmSync(worktreePath, { recursive: true, force: true });
+        execSync(`git worktree prune`, { cwd: process.cwd(), stdio: "pipe" });
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  cp.on("exit", (code, signal) => {
+    cleanup();
     streamLog.write(`\n[${iso()}] Process exited${code != null ? ` with code ${code}` : signal ? ` (signal ${signal})` : ""}\n`);
     streamLog.end();
     writeLog({ output, exitedAt: Date.now(), exitCode: code ?? undefined });
   });
 
   cp.on("error", (err) => {
-    try {
-      unlinkSync(scriptPath);
-    } catch {
-      /* ignore */
-    }
+    cleanup();
     const msg = String(err);
     streamLog.write(`[${iso()}] Process error: ${msg}\n`);
     streamLog.end();
@@ -121,7 +153,7 @@ Instructions:
 4. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
 5. If you are not able to complete the work, release the granule back to the queue and exit.
 6. If the work consists of file artifact additions or changes:
-   a. git checkout a new branch for the work. This should be called "worker-${workerId}-granule-${granule.id}".
+   a. You are already on branch "worker-${workerId}-granule-${granule.id}" in an isolated worktree.
    b. Identify the smallest set of changes that are necessary to complete the work.
    c. Make the changes in a TDD manner; test for the negative, then implement the positive.
    d. Refactor and restructure as necessary.
