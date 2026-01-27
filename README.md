@@ -153,11 +153,16 @@ npm start
 ```
 
 ## CI/CD
-The npx package @lbsa71/granules is pushed to npm on every push to `main`
+
+The package `@lbsa71/granules` is automatically published to npm on every push to `main`.
+
+**Setup Requirements:**
+- Add `NPM_TOKEN` secret to GitHub repository settings (Settings > Secrets > Actions)
+- The token must have publish permissions for the `@lbsa71` scope
 
 ### Using npx (no installation required)
 ```bash
-npx granules
+npx @lbsa71/granules
 ```
 
 This will download and run the latest version of granules in your current directory. The orchestrator will:

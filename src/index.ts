@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { GranuleStore } from "./store.js";
 import { Orchestrator } from "./orchestrator.js";
 

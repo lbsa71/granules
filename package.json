@@ -1,9 +1,16 @@
 {
-  "name": "granules",
+  "name": "@lbsa71/granules",
   "version": "1.0.0",
   "description": "Minimal multi-agent orchestrator using MCP",
   "main": "dist/index.js",
+  "bin": {
+    "granules": "dist/index.js"
+  },
   "type": "module",
+  "files": [
+    "dist",
+    "mcp-config.json"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "tsx src/index.ts",
