@@ -52,7 +52,7 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const scriptPath = join(tmpdir(), `granules-${workerId}-${Date.now()}.sh`);
   const extraArg = extra.length ? " " + extra.map((a) => "'" + esc(a) + "'").join(" ") : "";
   const scriptBody = `#!${shell}
-exec '${esc(claudeExe)}'${extraArg} --model sonnet --mcp-config ./mcp-config.json --output-format json -p '${esc(prompt)}'
+exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config ./mcp-config.json --dangerously-skip-permissions --verbose --output-format stream-json --include-partial-messages -p '${esc(prompt)}'
 `;
   writeFileSync(scriptPath, scriptBody, { mode: 0o700 });
 
@@ -110,28 +110,31 @@ Your task is to implement the following item of work, called a 'granule':
 - Class: ${granule.class}
 - Content: ${granule.content}
 
-CRITICAL: Execute tools ONE AT A TIME. Never make multiple tool calls in a single turn.
-
 Instructions:
-1. FIRST ACTION: Call claim_granule with your worker ID and granule ID. Do this before any other action.
+1. FIRST ACTION: Claim this granule using your worker ID (${workerId}) and granule ID (${granule.id}). Do this before any other action.
 2. After claiming, familiarize yourself with the project and the codebase as needed. There should always be:
   - a README.md in the root of the repository, and in the folder of every subsystem. This should follow best practices for README.md files.
   - There should always be an ARCITECTURE.md and a CONTRIBUTING.md file in the root.
   - The CLAUDE.md file in the root should contain the rules for the worker.
   - All documentation files should be in full correspondance.
 3. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
-4. If you are not able to complete the work, call release_granule with your worker ID and granule ID, and exit.
+4. If you are not able to complete the work, release the granule back to the queue and exit.
 5. If the work consists of file artifact changes:
    a. git checkout a new branch for the work. This should be called "worker-${workerId}-granule-${granule.id}".
    b. Identify the smallest set of changes that are necessary to complete the work.
    c. Make the changes in a TDD manner; test for the negative, then implement the positive.
    d. Refactor and restructure as necessary. Create followup granules if necessary.
    e. git add, commit, and push the changes.
-   f. Call create_granule to spawn a consolidate granule with the content 'Fold branch "worker-${workerId}-granule-${granule.id}" into main, solving conflicts as necessary.'.
+   f. Create a new consolidate granule with the content 'Fold branch "worker-${workerId}-granule-${granule.id}" into main, solving conflicts as necessary.'.
 6. All other work, such as planning, architecting, review, critique and other non-filesystem changes:
    a. Identify the smallest set of changes that are necessary to complete the work.
-   b. Post a new granule containing the identified needed change.
-7. When done, call complete_granule with a brief summary of the work done.
+   b. Create a new granule containing the identified needed change.
+7. When done, mark the granule as complete with a brief summary of the work done.
 
-Available MCP tools: list_granules, create_granule, claim_granule, release_granule, complete_granule`;
+You have access to the granule management system which allows you to:
+- List all available granules in the work queue
+- Create new granules to spawn follow-up work items
+- Claim a granule to indicate you are working on it
+- Release a granule if you cannot complete the work
+- Complete a granule with a summary when finished`;
 }
