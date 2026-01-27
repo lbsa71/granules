@@ -22,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lbsa71/granules"
+    "url": "git+https://github.com/lbsa71/granules.git"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
