@@ -1,6 +1,7 @@
 import { GranuleStore } from "./store.js";
 import { startMcpHttpServer } from "./server.js";
 import { spawnWorker } from "./worker.js";
+import { UIManager } from "./ui.js";
 import type { ChildProcess } from "child_process";
 import { readdirSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -16,22 +17,27 @@ interface ActiveWorker {
   startedAt: number;
 }
 
-export interface OrchestratorOptions {
-  /** When a granule with class "Implemented" exists, called with its content; orchestrator stops. */
-  onExitCondition?: (report: string) => void;
-}
-
 export class Orchestrator {
   private store: GranuleStore;
   private activeWorkers: Map<string, ActiveWorker> = new Map();
   private nextWorkerId: number = 1;
   private loopInterval?: NodeJS.Timeout;
   private serverStarted: boolean = false;
-  private onExitCondition?: (report: string) => void;
+  private ui: UIManager;
 
-  constructor(store: GranuleStore, options?: OrchestratorOptions) {
+  constructor(store: GranuleStore) {
     this.store = store;
-    this.onExitCondition = options?.onExitCondition;
+    this.ui = new UIManager();
+
+    // Handle user input from REPL
+    this.ui.onCommand = (command: string) => {
+      this.store.createGranule("implement", command);
+    };
+
+    this.ui.onExit = () => {
+      this.stop();
+      process.exit(0);
+    };
   }
 
   async start(): Promise<void> {
@@ -44,6 +50,17 @@ export class Orchestrator {
       this.serverStarted = true;
     }
 
+    // Bootstrap: create plan granule if none exist
+    if (this.store.listGranules().length === 0) {
+      this.store.createGranule(
+        "plan",
+        "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
+      );
+    }
+
+    // Start UI
+    this.ui.start();
+
     // Start main loop
     this.loopInterval = setInterval(() => {
       this.tick();
@@ -51,8 +68,6 @@ export class Orchestrator {
 
     // Run first tick immediately
     this.tick();
-
-    console.log("Orchestrator started");
   }
 
   stop(): void {
@@ -60,6 +75,9 @@ export class Orchestrator {
       clearInterval(this.loopInterval);
       this.loopInterval = undefined;
     }
+
+    // Stop UI
+    this.ui.stop();
 
     // Terminate all active workers
     for (const worker of this.activeWorkers.values()) {
@@ -70,8 +88,6 @@ export class Orchestrator {
       }
     }
     this.activeWorkers.clear();
-
-    console.log("Orchestrator stopped");
   }
 
   private cleanupLogs(): void {
@@ -84,57 +100,24 @@ export class Orchestrator {
           unlinkSync(join(logsDir, file));
         }
       }
-      console.log(`Cleaned up ${files.length} old log files`);
-    } catch (error) {
-      console.warn("Could not clean up logs:", error);
+    } catch {
+      // Ignore log cleanup errors
     }
   }
 
   private tick(): void {
     // Release stale claims
-    const released = this.store.releaseStaleClaims(STALE_CLAIM_TIMEOUT_MS);
-    if (released > 0) {
-      console.log(`Released ${released} stale claim(s)`);
-    }
+    this.store.releaseStaleClaims(STALE_CLAIM_TIMEOUT_MS);
 
     // Clean up completed workers
     this.cleanupCompletedWorkers();
-
-    const granules = this.store.listGranules();
-    const implemented = granules.find((g) => g.class === "Implemented");
-    const hasWorkInProgress = this.activeWorkers.size > 0 || granules.some((g) => g.state === "claimed");
-
-    // Exit condition: at least 1 "Implemented" AND no work in progress
-    if (implemented && !hasWorkInProgress) {
-      this.stop();
-      this.onExitCondition?.(implemented.content);
-      return;
-    }
-
-    // Don't spawn new work if we have an "Implemented" granule (let in-progress work finish)
-    if (implemented) {
-      console.log(`[Orchestrator] Waiting for ${this.activeWorkers.size} worker(s) to finish before exit`);
-      this.logState();
-      return;
-    }
-
-    // If no work left and no workers, create a review granule to check if we're done
-    const unclaimed = granules.filter((g) => g.state === "unclaimed");
-    const claimed = granules.filter((g) => g.state === "claimed");
-    if (unclaimed.length === 0 && claimed.length === 0 && this.activeWorkers.size === 0) {
-      this.store.createGranule(
-        "plan",
-        "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
-      );
-      console.log("Created review granule - checking if project is complete");
-    }
 
     // Granules that already have a worker assigned (avoid spawning twice for same granule)
     const assignedGranuleIds = new Set(
       [...this.activeWorkers.values()].map((w) => w.granuleId)
     );
 
-    // Get unclaimed granules (refresh list in case we just added a review granule)
+    // Get unclaimed granules
     const spawnableGranules = this.store.listGranules().filter(
       (g) =>
         g.state === "unclaimed" &&
@@ -151,8 +134,8 @@ export class Orchestrator {
       this.spawnWorkerForGranule(granule.id);
     }
 
-    // Log state
-    this.logState();
+    // Update UI
+    this.ui.update(this.activeWorkers, this.store.listGranules());
   }
 
   private cleanupCompletedWorkers(): void {
@@ -190,30 +173,15 @@ export class Orchestrator {
       this.activeWorkers.set(workerId, activeWorker);
 
       // Handle process completion
-      process.on("exit", (code) => {
-        this.activeWorkers.delete(workerId);
-        console.log(`Worker ${workerId} exited with code ${code}`);
-      });
-
-      process.on("error", (error) => {
-        console.error(`Worker ${workerId} error:`, error);
+      process.on("exit", () => {
         this.activeWorkers.delete(workerId);
       });
 
-      console.log(`Spawned worker ${workerId} for granule ${granuleId}`);
-    } catch (error) {
-      console.error(`Failed to spawn worker ${workerId}:`, error);
+      process.on("error", () => {
+        this.activeWorkers.delete(workerId);
+      });
+    } catch {
+      // Worker spawn failed - will be visible in UI as missing worker
     }
-  }
-
-  private logState(): void {
-    const granules = this.store.listGranules();
-    const unclaimed = granules.filter((g) => g.state === "unclaimed").length;
-    const claimed = granules.filter((g) => g.state === "claimed").length;
-    const completed = granules.filter((g) => g.state === "completed").length;
-
-    console.log(
-      `[Orchestrator] Granules: ${unclaimed} unclaimed, ${claimed} claimed, ${completed} completed | Active workers: ${this.activeWorkers.size}`
-    );
   }
 }

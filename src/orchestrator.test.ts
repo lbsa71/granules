@@ -17,6 +17,17 @@ vi.mock("./server.js", () => ({
   startMcpHttpServer: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock UI to avoid stdin issues in tests
+vi.mock("./ui.js", () => ({
+  UIManager: vi.fn(() => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+    update: vi.fn(),
+    onCommand: null,
+    onExit: null,
+  })),
+}));
+
 describe("Orchestrator", () => {
   let store: GranuleStore;
   let orchestrator: Orchestrator;
@@ -38,7 +49,6 @@ describe("Orchestrator", () => {
     expect(granules).toHaveLength(1);
     expect(granules[0].class).toBe("plan");
     expect(granules[0].content).toContain("gap analysis");
-    expect(granules[0].content).toContain("Implemented");
   });
 
   it("should not create bootstrap granule if granules exist", async () => {
@@ -65,17 +75,6 @@ describe("Orchestrator", () => {
     expect(updated?.state).toBe("unclaimed");
   });
 
-  it("should run onExitCondition with content and stop when an Implemented granule exists", async () => {
-    const onExitCondition = vi.fn();
-    store.createGranule("Implemented", "Final assessment: project complete.");
-    const orch = new Orchestrator(store, { onExitCondition });
-
-    await orch.start();
-
-    expect(onExitCondition).toHaveBeenCalledOnce();
-    expect(onExitCondition).toHaveBeenCalledWith("Final assessment: project complete.");
-  });
-
   it("should not spawn workers for Implemented granules", async () => {
     const { spawnWorker } = await import("./worker.js");
     vi.mocked(spawnWorker).mockClear();
@@ -86,5 +85,17 @@ describe("Orchestrator", () => {
     await orchestrator.start();
 
     expect(spawnWorker).not.toHaveBeenCalled();
+  });
+
+  it("should spawn workers for unclaimed granules", async () => {
+    const { spawnWorker } = await import("./worker.js");
+    vi.mocked(spawnWorker).mockClear();
+
+    store.createGranule("implement", "Do something");
+    orchestrator = new Orchestrator(store);
+
+    await orchestrator.start();
+
+    expect(spawnWorker).toHaveBeenCalledOnce();
   });
 });

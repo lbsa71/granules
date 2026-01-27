@@ -152,6 +152,9 @@ npm install
 npm start
 ```
 
+## CI/CD
+The npx package @lbsa71/granules is pushed to npm on every push to `main`
+
 ### Using npx (no installation required)
 ```bash
 npx granules
@@ -163,6 +166,3 @@ This will download and run the latest version of granules in your current direct
 - Spawn workers to complete granules
 - Exit when an "Implemented" granule is created
 
-
-## CI/CD
-The npx package is pushed to npm on every push to `main`
