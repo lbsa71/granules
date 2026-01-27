@@ -1,8 +1,12 @@
 import { spawn, execSync, type ChildProcess } from "child_process";
 import { writeFileSync, mkdirSync, createWriteStream, unlinkSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import type { Granule } from "./types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_ROOT = join(__dirname, "..");
 
 /** Hardcoded default path for claude. Override with GRANULES_WORKER_CMD. */
 const CLAUDE_PATH = "/Users/stefan/.local/bin/claude";
@@ -68,7 +72,7 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const esc = (s: string) => s.replace(/'/g, "'\"'\"'");
   const scriptPath = join(tmpdir(), `granules-${workerId}-${Date.now()}.sh`);
   const extraArg = extra.length ? " " + extra.map((a) => "'" + esc(a) + "'").join(" ") : "";
-  const mcpConfigPath = join(process.cwd(), "mcp-config.json");
+  const mcpConfigPath = join(PACKAGE_ROOT, "mcp-config.json");
   const scriptBody = `#!${shell}
 exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config '${esc(mcpConfigPath)}' --dangerously-skip-permissions --verbose --output-format stream-json --include-partial-messages -p '${esc(prompt)}'
 `;
