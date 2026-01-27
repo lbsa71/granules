@@ -44,16 +44,6 @@ export class Orchestrator {
       this.serverStarted = true;
     }
 
-    // Bootstrap: create plan granule if none exist
-    const granules = this.store.listGranules();
-    if (granules.length === 0) {
-      this.store.createGranule(
-        "plan",
-        "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
-      );
-      console.log("Created bootstrap plan granule");
-    }
-
     // Start main loop
     this.loopInterval = setInterval(() => {
       this.tick();
@@ -128,13 +118,24 @@ export class Orchestrator {
       return;
     }
 
+    // If no work left and no workers, create a review granule to check if we're done
+    const unclaimed = granules.filter((g) => g.state === "unclaimed");
+    const claimed = granules.filter((g) => g.state === "claimed");
+    if (unclaimed.length === 0 && claimed.length === 0 && this.activeWorkers.size === 0) {
+      this.store.createGranule(
+        "plan",
+        "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
+      );
+      console.log("Created review granule - checking if project is complete");
+    }
+
     // Granules that already have a worker assigned (avoid spawning twice for same granule)
     const assignedGranuleIds = new Set(
       [...this.activeWorkers.values()].map((w) => w.granuleId)
     );
 
-    // Get unclaimed granules (exclude "Implemented" and ones we're already working on)
-    const unclaimed = granules.filter(
+    // Get unclaimed granules (refresh list in case we just added a review granule)
+    const spawnableGranules = this.store.listGranules().filter(
       (g) =>
         g.state === "unclaimed" &&
         g.class !== "Implemented" &&
@@ -143,10 +144,10 @@ export class Orchestrator {
 
     // Spawn workers for unclaimed granules (up to MAX_WORKERS)
     const availableSlots = MAX_WORKERS - this.activeWorkers.size;
-    const toSpawn = Math.min(availableSlots, unclaimed.length);
+    const toSpawn = Math.min(availableSlots, spawnableGranules.length);
 
     for (let i = 0; i < toSpawn; i++) {
-      const granule = unclaimed[i];
+      const granule = spawnableGranules[i];
       this.spawnWorkerForGranule(granule.id);
     }
 
