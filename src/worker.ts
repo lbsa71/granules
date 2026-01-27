@@ -112,14 +112,14 @@ Your task is to implement the following item of work, called a 'granule':
 
 Instructions:
 1. FIRST ACTION: Claim this granule using your worker ID (${workerId}) and granule ID (${granule.id}). Do this before any other action.
-2. After claiming, familiarize yourself with the project and the codebase as needed. There should always be:
+2. After claiming, familiarize yourself with the project and the codebase as needed. There MUST always be:
   - a README.md in the root of the repository, and in the folder of every subsystem. This should follow best practices for README.md files.
-  - There should always be an ARCITECTURE.md and a CONTRIBUTING.md file in the root.
-  - The CLAUDE.md file in the root should contain the rules for the worker.
-  - All documentation files should be in full correspondance.
+  - an ARCITECTURE.md and a CONTRIBUTING.md file in the root.
+  - a CLAUDE.md file in the root that contain the rules for the worker.
+  - full correspondance between the documentation files.
 3. Verify that the granule is valid and whether you agree that the content is a valid task to be implemented.
 4. If you are not able to complete the work, release the granule back to the queue and exit.
-5. If the work consists of file artifact changes:
+5. If the work consists of file artifact additions or changes:
    a. git checkout a new branch for the work. This should be called "worker-${workerId}-granule-${granule.id}".
    b. Identify the smallest set of changes that are necessary to complete the work.
    c. Make the changes in a TDD manner; test for the negative, then implement the positive.

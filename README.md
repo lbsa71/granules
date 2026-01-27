@@ -9,7 +9,6 @@ Minimal multi-agent orchestrator. An MCP server holds work items (granules). Cla
 - **Summaries enable coordination**: Completed granules include summaries so workers can understand prior work
 
 ## Architecture
-
 ```
 ┌─────────────┐      ┌─────────────┐
 │ Orchestrator│──────│ MCP Server  │
@@ -163,3 +162,7 @@ This will download and run the latest version of granules in your current direct
 - Create a bootstrap granule if none exist
 - Spawn workers to complete granules
 - Exit when an "Implemented" granule is created
+
+
+## CI/CD
+The npx package is pushed to npm on every push to `main`
