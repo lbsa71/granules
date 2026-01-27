@@ -27,4 +27,14 @@ jobs:
       - run: npm test
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance --verbose 2>&1 | tee npm-publish.log
+        continue-on-error: true
+
+      - name: Upload npm logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs
+          path: |
+            npm-publish.log
+            /home/runner/.npm/_logs/*.log
