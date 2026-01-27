@@ -68,8 +68,9 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const esc = (s: string) => s.replace(/'/g, "'\"'\"'");
   const scriptPath = join(tmpdir(), `granules-${workerId}-${Date.now()}.sh`);
   const extraArg = extra.length ? " " + extra.map((a) => "'" + esc(a) + "'").join(" ") : "";
+  const mcpConfigPath = join(process.cwd(), "mcp-config.json");
   const scriptBody = `#!${shell}
-exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config ./mcp-config.json --dangerously-skip-permissions --verbose --output-format stream-json --include-partial-messages -p '${esc(prompt)}'
+exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config '${esc(mcpConfigPath)}' --dangerously-skip-permissions --verbose --output-format stream-json --include-partial-messages -p '${esc(prompt)}'
 `;
   writeFileSync(scriptPath, scriptBody, { mode: 0o700 });
 
@@ -99,20 +100,22 @@ exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config ./mcp-config.json 
     } catch {
       /* ignore */
     }
-    // Remove worktree (keep branch for PR)
+    // Remove worktree - worker may have already deleted the branch, so just force-remove directory and prune
     try {
-      execSync(`git worktree remove "${worktreePath}" --force`, {
-        cwd: process.cwd(),
-        stdio: "pipe",
-      });
+      rmSync(worktreePath, { recursive: true, force: true });
     } catch {
-      // Fallback: just delete the directory
-      try {
-        rmSync(worktreePath, { recursive: true, force: true });
-        execSync(`git worktree prune`, { cwd: process.cwd(), stdio: "pipe" });
-      } catch {
-        /* ignore */
-      }
+      /* ignore */
+    }
+    try {
+      execSync(`git worktree prune`, { cwd: process.cwd(), stdio: "pipe" });
+    } catch {
+      /* ignore */
+    }
+    // Clean up branch if it still exists
+    try {
+      execSync(`git branch -D "${branchName}"`, { cwd: process.cwd(), stdio: "pipe" });
+    } catch {
+      /* branch already deleted by worker, ignore */
     }
   };
 
@@ -157,8 +160,14 @@ Instructions:
    b. Identify the smallest set of changes that are necessary to complete the work.
    c. Make the changes in a TDD manner; test for the negative, then implement the positive.
    d. Refactor and restructure as necessary.
-   e. git add, commit, and push the changes.
-   f. Create a new consolidate granule with the content 'Fold branch "worker-${workerId}-granule-${granule.id}" into main, solving conflicts as necessary.'.
+   e. git add and commit your changes.
+   f. Merge to main:
+      - git fetch origin main
+      - git checkout main
+      - git pull origin main
+      - git merge "worker-${workerId}-granule-${granule.id}" (resolve any conflicts)
+      - git push origin main
+      - git branch -d "worker-${workerId}-granule-${granule.id}"
 7. All other work, such as planning, architecting, review, critique and other non-filesystem changes:
    a. Identify the smallest set of changes that are necessary to complete the work.
    b. Create a new granule containing the identified needed change.

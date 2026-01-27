@@ -101,14 +101,6 @@ export class Orchestrator {
   }
 
   private tick(): void {
-    // Exit condition: any granule with class "Implemented" stops the orchestrator and reports its content
-    const implemented = this.store.listGranules().find((g) => g.class === "Implemented");
-    if (implemented) {
-      this.stop();
-      this.onExitCondition?.(implemented.content);
-      return;
-    }
-
     // Release stale claims
     const released = this.store.releaseStaleClaims(STALE_CLAIM_TIMEOUT_MS);
     if (released > 0) {
@@ -118,20 +110,36 @@ export class Orchestrator {
     // Clean up completed workers
     this.cleanupCompletedWorkers();
 
+    const granules = this.store.listGranules();
+    const implemented = granules.find((g) => g.class === "Implemented");
+    const hasWorkInProgress = this.activeWorkers.size > 0 || granules.some((g) => g.state === "claimed");
+
+    // Exit condition: at least 1 "Implemented" AND no work in progress
+    if (implemented && !hasWorkInProgress) {
+      this.stop();
+      this.onExitCondition?.(implemented.content);
+      return;
+    }
+
+    // Don't spawn new work if we have an "Implemented" granule (let in-progress work finish)
+    if (implemented) {
+      console.log(`[Orchestrator] Waiting for ${this.activeWorkers.size} worker(s) to finish before exit`);
+      this.logState();
+      return;
+    }
+
     // Granules that already have a worker assigned (avoid spawning twice for same granule)
     const assignedGranuleIds = new Set(
       [...this.activeWorkers.values()].map((w) => w.granuleId)
     );
 
     // Get unclaimed granules (exclude "Implemented" and ones we're already working on)
-    const unclaimed = this.store
-      .listGranules()
-      .filter(
-        (g) =>
-          g.state === "unclaimed" &&
-          g.class !== "Implemented" &&
-          !assignedGranuleIds.has(g.id)
-      );
+    const unclaimed = granules.filter(
+      (g) =>
+        g.state === "unclaimed" &&
+        g.class !== "Implemented" &&
+        !assignedGranuleIds.has(g.id)
+    );
 
     // Spawn workers for unclaimed granules (up to MAX_WORKERS)
     const availableSlots = MAX_WORKERS - this.activeWorkers.size;
