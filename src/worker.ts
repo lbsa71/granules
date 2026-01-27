@@ -11,7 +11,14 @@ const PACKAGE_ROOT = join(__dirname, "..");
 /** Hardcoded default path for claude. Override with GRANULES_WORKER_CMD. */
 const CLAUDE_PATH = "/Users/stefan/.local/bin/claude";
 
+const MODELS = ["opus", "sonnet", "haiku"];
+
+function getModelForRetry(retryCount: number): string {
+  return MODELS[retryCount % MODELS.length] ?? "opus";
+}
+
 export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
+  const model = getModelForRetry(granule.retryCount ?? 0);
   // Ensure logs directory exists
   const logsDir = join(process.cwd(), "logs");
   try {
@@ -33,6 +40,7 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const workerCmd = process.env.GRANULES_WORKER_CMD?.trim() || CLAUDE_PATH;
   streamLog.write(`[${iso()}] Worker ${workerId} started for granule ${granule.id}\n`);
   streamLog.write(`[${iso()}] Using claude at: ${workerCmd}\n`);
+  streamLog.write(`[${iso()}] Model: ${model} (retry ${granule.retryCount ?? 0})\n`);
 
   // Create git worktree for isolated working directory
   const branchName = `worker-${workerId}-granule-${granule.id}`;
@@ -40,6 +48,8 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const worktreePath = join(worktreesDir, branchName);
   try {
     mkdirSync(worktreesDir, { recursive: true });
+    // Prune stale worktrees before creating new one
+    execSync(`git worktree prune`, { cwd: process.cwd(), stdio: "pipe" });
     execSync(`git worktree add -b "${branchName}" "${worktreePath}"`, {
       cwd: process.cwd(),
       stdio: "pipe",
@@ -74,7 +84,7 @@ export function spawnWorker(workerId: string, granule: Granule): ChildProcess {
   const extraArg = extra.length ? " " + extra.map((a) => "'" + esc(a) + "'").join(" ") : "";
   const mcpConfigPath = join(PACKAGE_ROOT, "mcp-config.json");
   const scriptBody = `#!${shell}
-exec '${esc(claudeExe)}'${extraArg} --model opus --mcp-config '${esc(mcpConfigPath)}' --dangerously-skip-permissions --verbose --output-format stream-json --include-partial-messages -p '${esc(prompt)}'
+exec '${esc(claudeExe)}'${extraArg} --model ${model} --mcp-config '${esc(mcpConfigPath)}' --dangerously-skip-permissions --verbose --output-format stream-json --include-partial-messages -p '${esc(prompt)}'
 `;
   writeFileSync(scriptPath, scriptBody, { mode: 0o700 });
 
