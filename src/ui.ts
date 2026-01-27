@@ -14,9 +14,9 @@ interface UIState {
     unclaimed: number;
     claimed: number;
     completed: number;
-    implemented: boolean;
     total: number;
   };
+  implementedReport?: string;
   inputLine: string;
 }
 
@@ -53,11 +53,25 @@ export function renderUI(state: UIState): void {
   console.log("\x1B[1m\x1B[36m┌─────────────────────────────────────────────────────────────────────────────┐\x1B[0m");
   console.log("\x1B[1m\x1B[36m│\x1B[0m  \x1B[1m🔮 GRANULES ORCHESTRATOR\x1B[0m                                                   \x1B[1m\x1B[36m│\x1B[0m");
   console.log("\x1B[1m\x1B[36m└─────────────────────────────────────────────────────────────────────────────┘\x1B[0m");
+
+  // Status report box (when implemented)
+  if (state.implementedReport) {
+    console.log();
+    console.log("\x1B[1m\x1B[32m┌─ STATUS REPORT ──────────────────────────────────────────────────────────────\x1B[0m");
+    const lines = state.implementedReport.split("\n");
+    for (const line of lines.slice(0, 8)) {
+      console.log(`\x1B[32m│\x1B[0m ${truncate(line, 75)}`);
+    }
+    if (lines.length > 8) {
+      console.log(`\x1B[32m│\x1B[0m \x1B[2m... (${lines.length - 8} more lines)\x1B[0m`);
+    }
+    console.log("\x1B[1m\x1B[32m└──────────────────────────────────────────────────────────────────────────────\x1B[0m");
+  }
   console.log();
 
   // Granule stats
-  const { unclaimed, claimed, completed, implemented, total } = state.granules;
-  const implStatus = implemented ? "\x1B[32m✓ IMPLEMENTED\x1B[0m" : "\x1B[33m◌ in progress\x1B[0m";
+  const { unclaimed, claimed, completed, total } = state.granules;
+  const implStatus = state.implementedReport ? "\x1B[32m✓ IMPLEMENTED\x1B[0m" : "\x1B[33m◌ in progress\x1B[0m";
   console.log(`\x1B[1mStatus:\x1B[0m ${implStatus}  │  \x1B[33m${unclaimed} queued\x1B[0m  │  \x1B[34m${claimed} claimed\x1B[0m  │  \x1B[32m${completed} done\x1B[0m  │  ${total} total`);
   console.log();
 
@@ -92,7 +106,7 @@ export class UIManager {
   private inputLine: string = "";
   private currentState: UIState = {
     workers: [],
-    granules: { unclaimed: 0, claimed: 0, completed: 0, implemented: false, total: 0 },
+    granules: { unclaimed: 0, claimed: 0, completed: 0, total: 0 },
     inputLine: "",
   };
 
@@ -187,15 +201,17 @@ export class UIManager {
       });
     }
 
+    const implemented = granules.find((g) => g.class === "Implemented");
+
     this.currentState = {
       workers: workerInfos,
       granules: {
         unclaimed: granules.filter((g) => g.state === "unclaimed").length,
         claimed: granules.filter((g) => g.state === "claimed").length,
         completed: granules.filter((g) => g.state === "completed").length,
-        implemented: granules.some((g) => g.class === "Implemented"),
         total: granules.length,
       },
+      implementedReport: implemented?.content,
       inputLine: this.inputLine,
     };
   }
