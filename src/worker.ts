@@ -3,7 +3,18 @@ import { writeFileSync, mkdirSync, createWriteStream, unlinkSync, rmSync } from 
 import { tmpdir } from "os";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import type { Granule } from "./types.js";
+import type { Granule, GranuleClass } from "./types.js";
+
+/** Class-specific prompt blocks to guide worker behavior based on granule type */
+export const CLASS_PROMPTS: Record<GranuleClass, string> = {
+  explore: "Focus on understanding the codebase structure, dependencies, and patterns. Document findings clearly.",
+  plan: "Design a clear implementation approach. Break down into discrete, testable steps.",
+  implement: "Write clean, tested code. Follow existing patterns. Keep changes minimal and focused.",
+  test: "Write comprehensive tests covering edge cases. Ensure tests are isolated and deterministic.",
+  review: "Provide constructive feedback. Check for bugs, style issues, and missed edge cases.",
+  consolidate: "Merge related work items. Resolve conflicts. Ensure consistency across changes.",
+  Implemented: "This is a terminal state. The work has been completed.",
+};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, "..");
@@ -152,12 +163,15 @@ exec '${esc(claudeExe)}'${extraArg} --model ${model} --mcp-config '${esc(mcpConf
 }
 
 function generateWorkerPrompt(workerId: string, granule: Granule): string {
+  const classPrompt = CLASS_PROMPTS[granule.class];
   return `You are Worker ${workerId}.
 
 Your task is to implement the following item of work, called a 'granule':
 - ID: ${granule.id}
 - Class: ${granule.class}
 - Content: ${granule.content}
+
+Class guidance: ${classPrompt}
 
 Instructions:
 1. FIRST ACTION: Claim this granule using your worker ID (${workerId}) and granule ID (${granule.id}). Do this before any other action.
