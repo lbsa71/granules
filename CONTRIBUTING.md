@@ -135,13 +135,16 @@ The orchestrator automatically cleans up worktrees when workers exit, but worker
 granules/
 ├── src/
 │   ├── index.ts           # Entry point, starts orchestrator
-│   ├── server.ts          # MCP server setup
-│   ├── server.test.ts     # Server tests
 │   ├── orchestrator.ts    # Main loop, worker spawning
 │   ├── orchestrator.test.ts
+│   ├── server.ts          # MCP server setup
+│   ├── server.test.ts     # Server tests
+│   ├── session-log.ts     # Session logging utilities
+│   ├── session-log.test.ts
 │   ├── store.ts           # Granule storage
 │   ├── store.test.ts
 │   ├── types.ts           # TypeScript type definitions
+│   ├── ui.ts              # Terminal UI rendering
 │   ├── worker.ts          # Worker spawning logic
 │   └── tools/             # MCP tool implementations
 │       ├── index.ts
