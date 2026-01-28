@@ -363,53 +363,23 @@ granules/
 └── ...
 ```
 
-## Exit Condition Logic
+## Work Cycle Completion
 
-The system has a sophisticated exit condition mechanism.
+When a granule with class `"Implemented"` exists and no work is in progress, the current work cycle is complete. The orchestrator:
 
-**Trigger Conditions:**
-1. A granule with class `"Implemented"` exists
-2. No work is in progress:
-   - `activeWorkers.size === 0` (no running worker processes)
-   - No granules in `"claimed"` state
+1. Ends the current session log
+2. Displays the Implemented granule's content in the UI
+3. **Keeps the REPL running** - user can add more tasks
 
-**Implementation (`orchestrator.ts:114-129`):**
-```typescript
-const implemented = granules.find((g) => g.class === "Implemented");
-const hasWorkInProgress =
-  this.activeWorkers.size > 0 ||
-  granules.some((g) => g.state === "claimed");
-
-if (implemented && !hasWorkInProgress) {
-  this.stop();
-  this.onExitCondition?.(implemented.content);
-  return;
-}
-
-// Don't spawn new work if Implemented exists - let current work finish
-if (implemented) {
-  console.log(`Waiting for ${this.activeWorkers.size} worker(s) to finish`);
-  return;
-}
-```
+The orchestrator only exits when the user types `exit` in the REPL.
 
 **Behavior:**
 | State | Action |
 |-------|--------|
 | No Implemented granule | Continue spawning workers |
-| Implemented + work in progress | Wait, don't spawn new workers |
-| Implemented + all complete | Stop orchestrator, call exit callback |
-
-**Exit Callback:**
-```typescript
-// Registered in index.ts
-onExitCondition: (report) => {
-  console.log("\n--- Final report ---\n");
-  console.log(report);  // Content of Implemented granule
-  console.log("\n---\n");
-  process.exit(0);
-}
-```
+| Implemented + work in progress | Wait for workers to finish |
+| Implemented + all complete | End session, keep REPL active |
+| User types "exit" | Stop orchestrator and exit |
 
 ## Key Design Patterns
 

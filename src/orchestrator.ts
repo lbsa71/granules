@@ -124,16 +124,14 @@ export class Orchestrator {
 
     const granules = this.store.listGranules();
 
-    // Check for exit condition: Implemented granule exists and no work in progress
+    // Check if work cycle is complete: Implemented granule exists and no work in progress
     const implemented = granules.find((g) => g.class === "Implemented");
     const hasWorkInProgress =
       this.activeWorkers.size > 0 || granules.some((g) => g.state === "claimed");
 
     if (implemented && !hasWorkInProgress) {
+      // End session but keep REPL running - user must type 'exit' to quit
       this.sessionLog.endSession();
-      this.ui.update(this.activeWorkers, granules);
-      this.stop();
-      return;
     }
 
     // Granules that already have a worker assigned (avoid spawning twice for same granule)
