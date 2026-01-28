@@ -145,6 +145,40 @@ describe("MCP Server Integration", () => {
         expect(claimResult.success).toBe(false);
       }
     });
+
+    it("should fail to claim non-existent granule", async () => {
+      const result = await client.callTool({
+        name: "claim_granule",
+        arguments: { granuleId: "G-999", workerId: "W-1" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const claimResult = JSON.parse(content.text);
+        expect(claimResult.success).toBe(false);
+      }
+    });
+
+    it("should fail to claim a completed granule", async () => {
+      const granule = store.createGranule("plan", "Test");
+      store.claimGranule(granule.id, "W-1");
+      store.completeGranule(granule.id, "W-1", "Done");
+
+      const result = await client.callTool({
+        name: "claim_granule",
+        arguments: { granuleId: granule.id, workerId: "W-2" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const claimResult = JSON.parse(content.text);
+        expect(claimResult.success).toBe(false);
+      }
+    });
   });
 
   describe("release_granule tool", () => {
@@ -177,6 +211,38 @@ describe("MCP Server Integration", () => {
       const result = await client.callTool({
         name: "release_granule",
         arguments: { granuleId: granule.id, workerId: "W-2" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const releaseResult = JSON.parse(content.text);
+        expect(releaseResult.success).toBe(false);
+      }
+    });
+
+    it("should fail to release non-existent granule", async () => {
+      const result = await client.callTool({
+        name: "release_granule",
+        arguments: { granuleId: "G-999", workerId: "W-1" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const releaseResult = JSON.parse(content.text);
+        expect(releaseResult.success).toBe(false);
+      }
+    });
+
+    it("should fail to release an unclaimed granule", async () => {
+      const granule = store.createGranule("plan", "Test");
+
+      const result = await client.callTool({
+        name: "release_granule",
+        arguments: { granuleId: granule.id, workerId: "W-1" },
       });
 
       expect(result.content).toHaveLength(1);
@@ -229,6 +295,61 @@ describe("MCP Server Integration", () => {
         const completeResult = JSON.parse(content.text);
         expect(completeResult.success).toBe(false);
       }
+    });
+
+    it("should fail to complete non-existent granule", async () => {
+      const result = await client.callTool({
+        name: "complete_granule",
+        arguments: { granuleId: "G-999", workerId: "W-1", summary: "Done" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const completeResult = JSON.parse(content.text);
+        expect(completeResult.success).toBe(false);
+      }
+    });
+
+    it("should fail to complete an unclaimed granule", async () => {
+      const granule = store.createGranule("plan", "Test");
+
+      const result = await client.callTool({
+        name: "complete_granule",
+        arguments: { granuleId: granule.id, workerId: "W-1", summary: "Done" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const completeResult = JSON.parse(content.text);
+        expect(completeResult.success).toBe(false);
+      }
+    });
+
+    it("should complete granule without summary", async () => {
+      const granule = store.createGranule("plan", "Test");
+      store.claimGranule(granule.id, "W-1");
+
+      const result = await client.callTool({
+        name: "complete_granule",
+        arguments: { granuleId: granule.id, workerId: "W-1" },
+      });
+
+      expect(result.content).toHaveLength(1);
+      const content = result.content[0];
+      expect(content.type).toBe("text");
+      if (content.type === "text") {
+        const completeResult = JSON.parse(content.text);
+        expect(completeResult.success).toBe(true);
+      }
+
+      // Verify the granule was completed without summary
+      const updatedGranule = store.getGranule(granule.id);
+      expect(updatedGranule?.state).toBe("completed");
+      expect(updatedGranule?.summary).toBeUndefined();
     });
   });
 });

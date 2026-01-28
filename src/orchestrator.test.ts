@@ -109,4 +109,122 @@ describe("Orchestrator", () => {
 
     expect(spawnWorker).toHaveBeenCalledOnce();
   });
+
+  describe("error handling", () => {
+    it("should not spawn worker for granule that exceeds MAX_RETRIES", async () => {
+      const { spawnWorker } = await import("./worker.js");
+      vi.mocked(spawnWorker).mockClear();
+
+      const granule = store.createGranule("implement", "Test task");
+      // Manually set retry count to exceed MAX_RETRIES (3)
+      const g = store.getGranule(granule.id);
+      if (g) {
+        g.retryCount = 3;
+      }
+
+      orchestrator = new Orchestrator(store);
+      await orchestrator.start();
+
+      // Should not spawn worker for granule with too many retries
+      expect(spawnWorker).not.toHaveBeenCalled();
+    });
+
+    it("should handle missing granule gracefully in spawnWorkerForGranule", async () => {
+      const { spawnWorker } = await import("./worker.js");
+
+      // Pre-create a granule so bootstrap doesn't create one
+      store.createGranule("implement", "Existing task");
+      orchestrator = new Orchestrator(store);
+      await orchestrator.start();
+
+      // Clear spawnWorker calls from start
+      vi.mocked(spawnWorker).mockClear();
+
+      // Try to spawn for non-existent granule directly
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      orchestrator["spawnWorkerForGranule"]("G-999");
+
+      expect(consoleSpy).toHaveBeenCalledWith("Granule G-999 not found");
+      expect(spawnWorker).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it("should clean up completed workers from active workers map", async () => {
+      const { spawnWorker } = await import("./worker.js");
+
+      const mockProcess = {
+        on: vi.fn(),
+        kill: vi.fn(),
+        killed: false,
+        exitCode: null as number | null,
+      };
+
+      vi.mocked(spawnWorker).mockClear();
+      vi.mocked(spawnWorker).mockReturnValue(mockProcess);
+
+      store.createGranule("implement", "Test task");
+      orchestrator = new Orchestrator(store);
+      await orchestrator.start();
+
+      // Initially have one active worker
+      expect(orchestrator["activeWorkers"].size).toBe(1);
+
+      // Simulate process completion
+      mockProcess.exitCode = 0;
+      orchestrator["cleanupCompletedWorkers"]();
+
+      // Worker should be removed from active workers
+      expect(orchestrator["activeWorkers"].size).toBe(0);
+    });
+
+    it("should clean up killed workers from active workers map", async () => {
+      const { spawnWorker } = await import("./worker.js");
+
+      const mockProcess = {
+        on: vi.fn(),
+        kill: vi.fn(),
+        killed: false,
+        exitCode: null as number | null,
+      };
+
+      vi.mocked(spawnWorker).mockClear();
+      vi.mocked(spawnWorker).mockReturnValue(mockProcess);
+
+      store.createGranule("implement", "Test task");
+      orchestrator = new Orchestrator(store);
+      await orchestrator.start();
+
+      // Simulate process being killed
+      mockProcess.killed = true;
+      orchestrator["cleanupCompletedWorkers"]();
+
+      // Worker should be removed from active workers
+      expect(orchestrator["activeWorkers"].size).toBe(0);
+    });
+
+    it("should track granule retry count from release errors", () => {
+      // This tests the store's error tracking which is used by orchestrator
+      const granule = store.createGranule("implement", "Test task");
+      store.claimGranule(granule.id, "W-1");
+      store.releaseGranule(granule.id, "W-1", "Worker exited with code 1");
+
+      const updated = store.getGranule(granule.id);
+      expect(updated?.retryCount).toBe(1);
+      expect(updated?.lastError).toBe("Worker exited with code 1");
+    });
+
+    it("should accumulate retry count across multiple failures", () => {
+      const granule = store.createGranule("implement", "Test task");
+
+      // Simulate multiple worker failures
+      for (let i = 0; i < 3; i++) {
+        store.claimGranule(granule.id, `W-${i + 1}`);
+        store.releaseGranule(granule.id, `W-${i + 1}`, `Error ${i + 1}`);
+      }
+
+      const updated = store.getGranule(granule.id);
+      expect(updated?.retryCount).toBe(3);
+      expect(updated?.lastError).toBe("Error 3");
+    });
+  });
 });

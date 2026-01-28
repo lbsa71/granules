@@ -104,6 +104,56 @@ describe("GranuleStore", () => {
       const result = store.releaseGranule("G-999", "W-1");
       expect(result.success).toBe(false);
     });
+
+    it("should fail to release an unclaimed granule", () => {
+      const granule = store.createGranule("plan", "Test");
+      const result = store.releaseGranule(granule.id, "W-1");
+
+      expect(result.success).toBe(false);
+      expect(store.getGranule(granule.id)?.state).toBe("unclaimed");
+    });
+
+    it("should track error and increment retry count when releasing with error", () => {
+      const granule = store.createGranule("plan", "Test");
+      store.claimGranule(granule.id, "W-1");
+      const result = store.releaseGranule(granule.id, "W-1", "Worker crashed");
+
+      expect(result.success).toBe(true);
+      const updated = store.getGranule(granule.id);
+      expect(updated?.state).toBe("unclaimed");
+      expect(updated?.retryCount).toBe(1);
+      expect(updated?.lastError).toBe("Worker crashed");
+    });
+
+    it("should accumulate retry counts across multiple failures", () => {
+      const granule = store.createGranule("plan", "Test");
+
+      // First failure
+      store.claimGranule(granule.id, "W-1");
+      store.releaseGranule(granule.id, "W-1", "Error 1");
+
+      // Second failure
+      store.claimGranule(granule.id, "W-2");
+      store.releaseGranule(granule.id, "W-2", "Error 2");
+
+      // Third failure
+      store.claimGranule(granule.id, "W-3");
+      store.releaseGranule(granule.id, "W-3", "Error 3");
+
+      const updated = store.getGranule(granule.id);
+      expect(updated?.retryCount).toBe(3);
+      expect(updated?.lastError).toBe("Error 3");
+    });
+
+    it("should not increment retry count when releasing without error", () => {
+      const granule = store.createGranule("plan", "Test");
+      store.claimGranule(granule.id, "W-1");
+      store.releaseGranule(granule.id, "W-1");
+
+      const updated = store.getGranule(granule.id);
+      expect(updated?.retryCount).toBeUndefined();
+      expect(updated?.lastError).toBeUndefined();
+    });
   });
 
   describe("completeGranule", () => {
@@ -130,6 +180,53 @@ describe("GranuleStore", () => {
     it("should fail to complete a non-existent granule", () => {
       const result = store.completeGranule("G-999", "W-1", "Summary");
       expect(result.success).toBe(false);
+    });
+
+    it("should fail to complete an unclaimed granule", () => {
+      const granule = store.createGranule("plan", "Test");
+      const result = store.completeGranule(granule.id, "W-1", "Summary");
+
+      expect(result.success).toBe(false);
+      expect(store.getGranule(granule.id)?.state).toBe("unclaimed");
+    });
+
+    it("should fail to complete an already completed granule", () => {
+      const granule = store.createGranule("plan", "Test");
+      store.claimGranule(granule.id, "W-1");
+      store.completeGranule(granule.id, "W-1", "First summary");
+
+      const result = store.completeGranule(granule.id, "W-1", "Second summary");
+      expect(result.success).toBe(false);
+      expect(store.getGranule(granule.id)?.summary).toBe("First summary");
+    });
+
+    it("should allow completion without summary", () => {
+      const granule = store.createGranule("plan", "Test");
+      store.claimGranule(granule.id, "W-1");
+      const result = store.completeGranule(granule.id, "W-1");
+
+      expect(result.success).toBe(true);
+      const updated = store.getGranule(granule.id);
+      expect(updated?.state).toBe("completed");
+      expect(updated?.summary).toBeUndefined();
+    });
+  });
+
+  describe("getGranule", () => {
+    it("should return undefined for non-existent granule", () => {
+      expect(store.getGranule("G-999")).toBeUndefined();
+    });
+
+    it("should return undefined for invalid granule ID format", () => {
+      expect(store.getGranule("invalid")).toBeUndefined();
+      expect(store.getGranule("")).toBeUndefined();
+    });
+
+    it("should return the granule when it exists", () => {
+      const created = store.createGranule("plan", "Test content");
+      const retrieved = store.getGranule(created.id);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.content).toBe("Test content");
     });
   });
 
