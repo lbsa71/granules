@@ -34,7 +34,7 @@ Minimal multi-agent orchestrator. An MCP server holds work items (granules). Cla
 | `test` | Write or run tests |
 | `review` | Critique another worker's output |
 | `consolidate` | Merge work from multiple workers |
-| `Implemented` | Exit condition: orchestrator stops |
+| `audit` | Deferred architectural review |
 
 ## Quick Start
 
@@ -68,6 +68,7 @@ granules/
 
 ## Documentation
 
+- [Granule Flow](docs/granule-flow.md) - State diagram and session examples
 - [MCP Tools Reference](docs/mcp-tools.md)
 - [Worker Prompt System](docs/worker-prompts.md)
 - [Configuration](docs/configuration.md)

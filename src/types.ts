@@ -5,7 +5,7 @@ export type GranuleClass =
   | "test"         // Write or run tests
   | "review"       // Critique another worker's output
   | "consolidate"  // Merge work from multiple workers
-  | "Implemented"; // Exit condition: orchestrator stops and outputs content as final report
+  | "audit";       // Deferred architectural review (security, performance, maintainability)
 
 export type GranuleState =
   | "unclaimed"    // Available for pickup

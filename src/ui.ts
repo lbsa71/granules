@@ -17,7 +17,7 @@ interface UIState {
     failed: number;
     total: number;
   };
-  implementedReport?: string;
+  auditReport?: string;
   inputLine: string;
 }
 
@@ -55,11 +55,11 @@ export function renderUI(state: UIState): void {
   console.log("\x1B[1m\x1B[36m│\x1B[0m  \x1B[1m🔮 GRANULES ORCHESTRATOR\x1B[0m                                                   \x1B[1m\x1B[36m│\x1B[0m");
   console.log("\x1B[1m\x1B[36m└─────────────────────────────────────────────────────────────────────────────┘\x1B[0m");
 
-  // Status report box (when implemented)
-  if (state.implementedReport) {
+  // Status report box (when audit complete)
+  if (state.auditReport) {
     console.log();
-    console.log("\x1B[1m\x1B[32m┌─ STATUS REPORT ──────────────────────────────────────────────────────────────\x1B[0m");
-    const lines = state.implementedReport.split("\n");
+    console.log("\x1B[1m\x1B[32m┌─ AUDIT REPORT ───────────────────────────────────────────────────────────────\x1B[0m");
+    const lines = state.auditReport.split("\n");
     for (const line of lines.slice(0, 8)) {
       console.log(`\x1B[32m│\x1B[0m ${truncate(line, 75)}`);
     }
@@ -72,9 +72,9 @@ export function renderUI(state: UIState): void {
 
   // Granule stats
   const { unclaimed, claimed, completed, failed, total } = state.granules;
-  const implStatus = state.implementedReport ? "\x1B[32m✓ IMPLEMENTED\x1B[0m" : "\x1B[33m◌ in progress\x1B[0m";
+  const auditStatus = state.auditReport ? "\x1B[32m✓ AUDIT COMPLETE\x1B[0m" : "\x1B[33m◌ in progress\x1B[0m";
   const failedStr = failed > 0 ? `  │  \x1B[31m${failed} failed\x1B[0m` : "";
-  console.log(`\x1B[1mStatus:\x1B[0m ${implStatus}  │  \x1B[33m${unclaimed} queued\x1B[0m  │  \x1B[34m${claimed} claimed\x1B[0m  │  \x1B[32m${completed} done\x1B[0m${failedStr}  │  ${total} total`);
+  console.log(`\x1B[1mStatus:\x1B[0m ${auditStatus}  │  \x1B[33m${unclaimed} queued\x1B[0m  │  \x1B[34m${claimed} claimed\x1B[0m  │  \x1B[32m${completed} done\x1B[0m${failedStr}  │  ${total} total`);
   console.log();
 
   if (state.workers.length === 0) {
@@ -203,7 +203,7 @@ export class UIManager {
       });
     }
 
-    const implemented = granules.find((g) => g.class === "Implemented");
+    const audit = granules.find((g) => g.class === "audit");
 
     const MAX_RETRIES = 3;
     const failed = granules.filter((g) => g.state === "unclaimed" && (g.retryCount ?? 0) >= MAX_RETRIES).length;
@@ -218,7 +218,7 @@ export class UIManager {
         failed,
         total: granules.length,
       },
-      implementedReport: implemented?.content,
+      auditReport: audit?.content,
       inputLine: this.inputLine,
     };
   }

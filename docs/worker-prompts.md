@@ -32,8 +32,8 @@ Critique work thoroughly. Check for bugs, style issues, missed edge cases. Creat
 ### consolidate
 Merge related work items. Resolve conflicts. Ensure consistency across changes.
 
-### Implemented
-Terminal state signaling orchestrator should exit. No action required.
+### audit
+Deferred until no other work remains. Performs a full architectural review of the codebase from three perspectives: security (injection, validation, secrets, OWASP top 10), performance (bottlenecks, caching, scalability), and maintainability (organization, naming, tests, docs). Creates granules for any issues found. If the codebase passes review, no granules are created and the system idles.
 
 ## Common Elements
 

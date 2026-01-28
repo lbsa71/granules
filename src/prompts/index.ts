@@ -5,7 +5,7 @@ import { IMPLEMENT_PROMPT } from "./implement.js";
 import { TEST_PROMPT } from "./test.js";
 import { REVIEW_PROMPT } from "./review.js";
 import { CONSOLIDATE_PROMPT } from "./consolidate.js";
-import { IMPLEMENTED_PROMPT } from "./implemented.js";
+import { AUDIT_PROMPT } from "./audit.js";
 
 /** Class-specific instruction templates. Placeholders: {{workerId}}, {{granuleId}}, {{branchName}} */
 export const CLASS_PROMPTS: Record<GranuleClass, string> = {
@@ -15,5 +15,5 @@ export const CLASS_PROMPTS: Record<GranuleClass, string> = {
   test: TEST_PROMPT,
   review: REVIEW_PROMPT,
   consolidate: CONSOLIDATE_PROMPT,
-  Implemented: IMPLEMENTED_PROMPT,
+  audit: AUDIT_PROMPT,
 };

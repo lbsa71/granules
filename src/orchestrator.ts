@@ -63,7 +63,7 @@ export class Orchestrator {
         // Default bootstrap granule
         this.store.createGranule(
           "plan",
-          "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
+          "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'audit' and the content containing an assessment of the project."
         );
       }
     }
@@ -124,29 +124,38 @@ export class Orchestrator {
 
     const granules = this.store.listGranules();
 
-    // Check if work cycle is complete: Implemented granule exists and no work in progress
-    const implemented = granules.find((g) => g.class === "Implemented");
-    const hasWorkInProgress =
-      this.activeWorkers.size > 0 || granules.some((g) => g.state === "claimed");
-
-    if (implemented && !hasWorkInProgress) {
-      // End session but keep REPL running - user must type 'exit' to quit
-      this.sessionLog.endSession();
-    }
-
     // Granules that already have a worker assigned (avoid spawning twice for same granule)
     const assignedGranuleIds = new Set(
       [...this.activeWorkers.values()].map((w) => w.granuleId)
     );
 
     // Get unclaimed granules (skip ones that exceeded max retries)
-    const spawnableGranules = granules.filter(
+    const nonauditUnclaimed = granules.filter(
       (g) =>
         g.state === "unclaimed" &&
-        g.class !== "Implemented" &&
+        g.class !== "audit" &&
         !assignedGranuleIds.has(g.id) &&
         (g.retryCount ?? 0) < MAX_RETRIES
     );
+
+    // Defer audit granules: only spawnable when no other unclaimed work exists
+    // and no other work is in progress
+    const hasOtherWork =
+      nonauditUnclaimed.length > 0 ||
+      this.activeWorkers.size > 0 ||
+      granules.some((g) => g.state === "claimed");
+
+    const auditUnclaimed = granules.filter(
+      (g) =>
+        g.state === "unclaimed" &&
+        g.class === "audit" &&
+        !assignedGranuleIds.has(g.id) &&
+        (g.retryCount ?? 0) < MAX_RETRIES
+    );
+
+    const spawnableGranules = hasOtherWork
+      ? nonauditUnclaimed
+      : [...nonauditUnclaimed, ...auditUnclaimed];
 
     // Spawn workers for unclaimed granules (up to MAX_WORKERS)
     const availableSlots = MAX_WORKERS - this.activeWorkers.size;

@@ -30,7 +30,7 @@ export function createMcpServer(store: GranuleStore): McpServer {
     "create_granule",
     "Create new granule",
     {
-      class: z.enum(["explore", "plan", "implement", "test", "review", "consolidate", "Implemented"]),
+      class: z.enum(["explore", "plan", "implement", "test", "review", "consolidate", "audit"]),
       content: z.string(),
     },
     async ({ class: granuleClass, content }) => {

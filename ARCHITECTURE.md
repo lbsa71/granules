@@ -115,7 +115,7 @@ const STALE_CLAIM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 - Monitor granule states in a polling loop (every 5 seconds)
 - Spawn workers for unclaimed granules (up to MAX_WORKERS=3)
 - Release stale claims (claims older than 30 minutes)
-- Detect exit condition (granule with class "Implemented" exists and no work in progress)
+- Detect exit condition (granule with class "audit" exists and no work in progress)
 - Clean up worker logs on startup
 
 **Lifecycle:**
@@ -141,7 +141,7 @@ Map<workerId, {
 
 **Key Design Decisions:**
 - **Polling-based**: Simpler than event-driven, adequate for the expected load.
-- **Exit condition**: "Implemented" class granule signals completion; orchestrator waits for in-progress work to finish before exiting.
+- **Exit condition**: "audit" class granule signals completion; orchestrator waits for in-progress work to finish before exiting.
 - **Worker limit**: MAX_WORKERS=3 prevents resource exhaustion.
 
 ### 4. Worker Spawner (`src/worker.ts`)
@@ -167,7 +167,7 @@ The `CLASS_PROMPTS` dictionary provides full instruction templates tailored to e
 | `test` | Writing comprehensive tests |
 | `review` | Critiquing work, checking for issues |
 | `consolidate` | Merging related work items |
-| `Implemented` | Terminal state, no action |
+| `audit` | Terminal state, no action |
 
 See [Worker Prompt System](docs/worker-prompts.md) for full details.
 
@@ -220,7 +220,7 @@ interface Granule {
 | `test` | Write or run tests |
 | `review` | Critique another worker's output |
 | `consolidate` | Merge work from multiple workers |
-| `Implemented` | **Exit condition**: orchestrator stops and outputs content as final report |
+| `audit` | **Exit condition**: orchestrator stops and outputs content as final report |
 
 ## Data Flow
 
@@ -243,7 +243,7 @@ tick()
    ├─► Release stale claims (>30min old)
    ├─► Clean up completed workers
    ├─► Check exit condition
-   │   └─► If Implemented granule exists AND no work in progress → EXIT
+   │   └─► If audit granule exists AND no work in progress → EXIT
    └─► Spawn workers for unclaimed granules (up to MAX_WORKERS)
 ```
 
@@ -363,23 +363,27 @@ granules/
 └── ...
 ```
 
-## Work Cycle Completion
+## audit Granule: Deferred Scheduling
 
-When a granule with class `"Implemented"` exists and no work is in progress, the current work cycle is complete. The orchestrator:
+The `audit` class has special orchestrator behavior:
 
-1. Ends the current session log
-2. Displays the Implemented granule's content in the UI
-3. **Keeps the REPL running** - user can add more tasks
-
-The orchestrator only exits when the user types `exit` in the REPL.
+1. **Deferred scheduling**: audit granules are NOT queued while other unclaimed granules exist or workers are active. They only get a worker when the system is otherwise idle.
+2. **Architectural review**: When scheduled, the worker performs a full review of the codebase (security, performance, maintainability) and creates new granules for any issues found.
+3. **UI status**: The audit granule's content is displayed as the status report in the UI panel.
+4. **May spawn work**: If the review finds issues, new granules are created and the work cycle continues.
+5. **No auto-exit**: The orchestrator never exits on its own. After the audit granule completes (with or without spawning new work), the REPL remains active.
 
 **Behavior:**
 | State | Action |
 |-------|--------|
-| No Implemented granule | Continue spawning workers |
-| Implemented + work in progress | Wait for workers to finish |
-| Implemented + all complete | End session, keep REPL active |
+| No audit granule | Continue spawning workers normally |
+| audit + other unclaimed/active work | Defer audit, spawn other work |
+| audit + system idle | Schedule audit for architectural review |
+| audit review creates granules | New work cycle begins |
+| audit review finds no issues | System idles, REPL active |
 | User types "exit" | Stop orchestrator and exit |
+
+See [Granule Flow](docs/granule-flow.md) for the full state diagram.
 
 ## Key Design Patterns
 

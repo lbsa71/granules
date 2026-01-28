@@ -83,16 +83,19 @@ describe("Orchestrator", () => {
     expect(updated?.state).toBe("unclaimed");
   });
 
-  it("should not spawn workers for Implemented granules", async () => {
+  it("should defer audit granules while other work exists", async () => {
     const { spawnWorker } = await import("./worker.js");
     vi.mocked(spawnWorker).mockClear();
 
-    store.createGranule("Implemented", "Done.");
+    store.createGranule("implement", "Do something.");
+    store.createGranule("audit", "Done.");
     orchestrator = new Orchestrator(store);
 
     await orchestrator.start();
 
-    expect(spawnWorker).not.toHaveBeenCalled();
+    // Should only spawn for the implement granule, not the audit one
+    expect(spawnWorker).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(spawnWorker).mock.calls[0]![1]!.class).toBe("implement");
   });
 
   it("should spawn workers for unclaimed granules", async () => {

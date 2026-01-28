@@ -10,7 +10,7 @@ describe("CLASS_PROMPTS", () => {
     "test",
     "review",
     "consolidate",
-    "Implemented",
+    "audit",
   ];
 
   it("has an entry for each GranuleClass", () => {
