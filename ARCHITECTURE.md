@@ -117,6 +117,7 @@ const STALE_CLAIM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 - Release stale claims (claims older than 30 minutes)
 - Detect exit condition (granule with class "audit" exists and no work in progress)
 - Clean up worker logs on startup
+- **Graceful shutdown**: Handle SIGTERM/SIGINT signals to cleanly stop workers and clean up worktrees
 
 **Lifecycle:**
 1. Clean up old logs
@@ -128,6 +129,18 @@ const STALE_CLAIM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
    - Check for exit condition
    - Spawn workers for unclaimed granules
    - Log state
+
+**Graceful Shutdown:**
+
+When receiving SIGTERM or SIGINT signals (or user "exit" command), the orchestrator performs a clean shutdown:
+1. Stop the main polling loop
+2. Stop the terminal UI
+3. Collect worktree information from active workers
+4. Terminate all active worker processes
+5. Clean up worktrees (remove directories and delete git branches)
+6. Exit process
+
+This ensures no orphaned processes or worktrees are left behind when the orchestrator is stopped.
 
 **Active Worker Tracking:**
 ```typescript
