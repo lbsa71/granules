@@ -149,11 +149,27 @@ Map<workerId, {
 Spawns Claude CLI processes to execute work on granules.
 
 **Responsibilities:**
-- Generate worker prompts with task instructions
+- Generate class-specific worker prompts
 - Create isolated git worktrees for each worker
 - Spawn Claude CLI with MCP configuration
 - Stream and log worker output
 - Clean up worktrees and branches on exit
+
+**Class-Specific Prompts (`CLASS_PROMPTS`):**
+
+The `CLASS_PROMPTS` dictionary provides full instruction templates tailored to each granule class. Templates use placeholders (`{{workerId}}`, `{{granuleId}}`, `{{branchName}}`) substituted at runtime.
+
+| Class | Focus |
+|-------|-------|
+| `explore` | Understanding codebase, documenting findings |
+| `plan` | Designing approach, breaking into steps |
+| `implement` | Full TDD workflow with git merge |
+| `test` | Writing comprehensive tests |
+| `review` | Critiquing work, checking for issues |
+| `consolidate` | Merging related work items |
+| `Implemented` | Terminal state, no action |
+
+See [Worker Prompt System](docs/worker-prompts.md) for full details.
 
 **Worker Process:**
 - Command: `claude --model opus --mcp-config ./mcp-config.json --dangerously-skip-permissions --verbose --output-format stream-json -p "{prompt}"`
@@ -461,6 +477,7 @@ Tests are located alongside their source files (`*.test.ts`) and use Vitest.
 - `server.test.ts` - MCP server integration tests
 - `session-log.test.ts` - Session logging unit tests
 - `store.test.ts` - GranuleStore unit tests
+- `worker.test.ts` - Worker spawner and CLASS_PROMPTS tests
 
 Run tests with:
 ```bash
@@ -474,29 +491,35 @@ granules/
 ├── src/
 │   ├── index.ts              # Entry point
 │   ├── orchestrator.ts       # Main orchestration loop
+│   ├── orchestrator.test.ts
 │   ├── server.ts             # MCP HTTP server
+│   ├── server.test.ts
 │   ├── session-log.ts        # Session logging
+│   ├── session-log.test.ts
 │   ├── store.ts              # In-memory Store
+│   ├── store.test.ts
 │   ├── types.ts              # Granule type definitions
 │   ├── ui.ts                 # Terminal UI manager
-│   ├── worker.ts             # Worker spawning and worktree management
-│   ├── tools/                # MCP tool implementations (legacy)
-│   │   ├── index.ts
-│   │   ├── list_granules.ts
-│   │   ├── create_granule.ts
-│   │   ├── claim_granule.ts
-│   │   ├── release_granule.ts
-│   │   └── complete_granule.ts
-│   └── *.test.ts             # Tests (vitest)
+│   ├── worker.ts             # Worker spawning, CLASS_PROMPTS
+│   ├── worker.test.ts
+│   └── tools/                # MCP tool implementations
+│       ├── index.ts
+│       ├── list_granules.ts
+│       ├── create_granule.ts
+│       ├── claim_granule.ts
+│       ├── release_granule.ts
+│       └── complete_granule.ts
+├── docs/                     # Detailed documentation
+│   ├── configuration.md
+│   ├── mcp-tools.md
+│   └── worker-prompts.md
 ├── .worktrees/               # Git worktrees for workers (gitignored)
 ├── logs/                     # Worker logs (gitignored)
-│   ├── worker-W-1.log        # Streaming output
-│   └── worker-W-1.json       # Final metadata
 ├── mcp-config.json           # MCP server config for workers
 ├── package.json
 ├── tsconfig.json
 ├── vitest.config.ts
 ├── ARCHITECTURE.md           # This file
 ├── CLAUDE.md                 # Claude Code instructions
-└── README.md                 # Project documentation
+└── README.md                 # Project overview
 ```

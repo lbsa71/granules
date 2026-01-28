@@ -138,14 +138,15 @@ granules/
 │   ├── orchestrator.ts    # Main loop, worker spawning
 │   ├── orchestrator.test.ts
 │   ├── server.ts          # MCP server setup
-│   ├── server.test.ts     # Server tests
+│   ├── server.test.ts
 │   ├── session-log.ts     # Session logging utilities
 │   ├── session-log.test.ts
 │   ├── store.ts           # Granule storage
 │   ├── store.test.ts
 │   ├── types.ts           # TypeScript type definitions
 │   ├── ui.ts              # Terminal UI rendering
-│   ├── worker.ts          # Worker spawning logic
+│   ├── worker.ts          # Worker spawning, CLASS_PROMPTS
+│   ├── worker.test.ts
 │   └── tools/             # MCP tool implementations
 │       ├── index.ts
 │       ├── claim_granule.ts
@@ -153,11 +154,13 @@ granules/
 │       ├── create_granule.ts
 │       ├── list_granules.ts
 │       └── release_granule.ts
+├── docs/                  # Detailed documentation
 ├── logs/                  # Worker output logs (generated)
 ├── package.json
 ├── tsconfig.json
 ├── vitest.config.ts
-├── README.md              # Project documentation
+├── README.md              # Project overview
+├── ARCHITECTURE.md        # System architecture
 ├── CLAUDE.md              # AI assistant instructions
 └── CONTRIBUTING.md        # This file
 ```
