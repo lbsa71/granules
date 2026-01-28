@@ -457,9 +457,10 @@ onExitCondition: (report) => {
 
 Tests are located alongside their source files (`*.test.ts`) and use Vitest.
 
-- `store.test.ts` - GranuleStore unit tests
-- `server.test.ts` - MCP server integration tests
 - `orchestrator.test.ts` - Orchestrator unit tests
+- `server.test.ts` - MCP server integration tests
+- `session-log.test.ts` - Session logging unit tests
+- `store.test.ts` - GranuleStore unit tests
 
 Run tests with:
 ```bash
@@ -472,10 +473,12 @@ npm test
 granules/
 ├── src/
 │   ├── index.ts              # Entry point
-│   ├── types.ts              # Granule type definitions
-│   ├── store.ts              # In-memory Store
-│   ├── server.ts             # MCP HTTP server
 │   ├── orchestrator.ts       # Main orchestration loop
+│   ├── server.ts             # MCP HTTP server
+│   ├── session-log.ts        # Session logging
+│   ├── store.ts              # In-memory Store
+│   ├── types.ts              # Granule type definitions
+│   ├── ui.ts                 # Terminal UI manager
 │   ├── worker.ts             # Worker spawning and worktree management
 │   ├── tools/                # MCP tool implementations (legacy)
 │   │   ├── index.ts
