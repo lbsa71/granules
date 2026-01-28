@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SessionLog, Session } from "./session-log.js";
-import { unlinkSync, existsSync, readFileSync } from "fs";
+import { unlinkSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 const TEST_LOG_PATH = join(process.cwd(), "logs", "sessions-test.json");
@@ -103,6 +103,73 @@ describe("SessionLog", () => {
       sessionLog.startSession();
       sessionLog.endSession();
       expect(sessionLog.hasActiveSession()).toBe(false);
+    });
+  });
+
+  describe("error handling", () => {
+    it("should handle corrupted JSON file gracefully", () => {
+      // Write corrupted JSON to the file
+      const dir = join(process.cwd(), "logs");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(TEST_LOG_PATH, "{ invalid json content");
+
+      // Creating a new session log should not throw
+      const corruptedLog = new SessionLog(TEST_LOG_PATH);
+      const sessions = corruptedLog.getSessions();
+
+      // Should start with empty sessions after corrupted file
+      expect(sessions).toHaveLength(0);
+    });
+
+    it("should handle empty file gracefully", () => {
+      const dir = join(process.cwd(), "logs");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(TEST_LOG_PATH, "");
+
+      const emptyLog = new SessionLog(TEST_LOG_PATH);
+      const sessions = emptyLog.getSessions();
+      expect(sessions).toHaveLength(0);
+    });
+
+    it("should create directory if it does not exist", () => {
+      const nestedPath = join(process.cwd(), "logs", "nested", "deep", "sessions-nested.json");
+
+      // Clean up if exists
+      try {
+        unlinkSync(nestedPath);
+      } catch {
+        // Ignore if not exists
+      }
+
+      const nestedLog = new SessionLog(nestedPath);
+      nestedLog.startSession();
+      nestedLog.endSession();
+
+      // Verify it was created
+      expect(existsSync(nestedPath)).toBe(true);
+
+      // Clean up
+      try {
+        unlinkSync(nestedPath);
+        // Clean up nested directories
+        const { rmdirSync } = require("fs");
+        rmdirSync(join(process.cwd(), "logs", "nested", "deep"));
+        rmdirSync(join(process.cwd(), "logs", "nested"));
+      } catch {
+        // Ignore cleanup errors
+      }
+    });
+
+    it("should return a copy of sessions array (immutability)", () => {
+      sessionLog.startSession();
+      const sessions1 = sessionLog.getSessions();
+      const sessions2 = sessionLog.getSessions();
+
+      // Should be different array instances
+      expect(sessions1).not.toBe(sessions2);
+
+      // But with same content
+      expect(sessions1).toEqual(sessions2);
     });
   });
 });
