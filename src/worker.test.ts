@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CLASS_PROMPTS } from "./worker.js";
+import { CLASS_PROMPTS } from "./prompts/index.js";
 import type { GranuleClass } from "./types.js";
 
 describe("CLASS_PROMPTS", () => {
