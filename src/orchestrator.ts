@@ -3,6 +3,7 @@ import { startMcpHttpServer } from "./server.js";
 import { spawnWorker } from "./worker.js";
 import { UIManager } from "./ui.js";
 import { SessionLog } from "./session-log.js";
+import { MAX_RETRIES } from "./constants.js";
 import type { ChildProcess } from "child_process";
 import { readdirSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -10,7 +11,6 @@ import { join } from "path";
 const MAX_WORKERS = 3;
 const LOOP_INTERVAL_MS = 5000;
 const STALE_CLAIM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-const MAX_RETRIES = 3;
 
 interface ActiveWorker {
   workerId: string;

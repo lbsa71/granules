@@ -11,8 +11,8 @@ export { CLASS_PROMPTS };
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, "..");
 
-/** Hardcoded default path for claude. Override with GRANULES_WORKER_CMD. */
-const CLAUDE_PATH = "/Users/stefan/.local/bin/claude";
+/** Default claude command. Relies on PATH lookup. Override with GRANULES_WORKER_CMD. */
+const CLAUDE_PATH = "claude";
 
 const MODELS = ["opus", "sonnet", "haiku"];
 
