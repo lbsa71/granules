@@ -2,6 +2,7 @@ import { GranuleStore } from "./store.js";
 import { startMcpHttpServer } from "./server.js";
 import { spawnWorker } from "./worker.js";
 import { UIManager } from "./ui.js";
+import { SessionLog } from "./session-log.js";
 import type { ChildProcess } from "child_process";
 import { readdirSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -25,10 +26,12 @@ export class Orchestrator {
   private loopInterval?: NodeJS.Timeout;
   private serverStarted: boolean = false;
   private ui: UIManager;
+  private sessionLog: SessionLog;
 
   constructor(store: GranuleStore) {
     this.store = store;
     this.ui = new UIManager();
+    this.sessionLog = new SessionLog(join(process.cwd(), "logs", "sessions.json"));
 
     // Handle user input from REPL
     this.ui.onCommand = (command: string) => {
@@ -41,7 +44,7 @@ export class Orchestrator {
     };
   }
 
-  async start(): Promise<void> {
+  async start(initialPrompt?: string): Promise<void> {
     // Clean up old logs
     this.cleanupLogs();
 
@@ -51,12 +54,18 @@ export class Orchestrator {
       this.serverStarted = true;
     }
 
-    // Bootstrap: create plan granule if none exist
+    // Bootstrap: create initial granule if none exist
     if (this.store.listGranules().length === 0) {
-      this.store.createGranule(
-        "plan",
-        "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
-      );
+      if (initialPrompt) {
+        // Use provided prompt as initial granule
+        this.store.createGranule("implement", initialPrompt);
+      } else {
+        // Default bootstrap granule
+        this.store.createGranule(
+          "plan",
+          "Read README.md and perform a gap analysis of the project. If the project is complete, create a new granule with the class 'Implemented' and the content containing an assessment of the project."
+        );
+      }
     }
 
     // Start UI
@@ -113,13 +122,27 @@ export class Orchestrator {
     // Clean up completed workers
     this.cleanupCompletedWorkers();
 
+    const granules = this.store.listGranules();
+
+    // Check for exit condition: Implemented granule exists and no work in progress
+    const implemented = granules.find((g) => g.class === "Implemented");
+    const hasWorkInProgress =
+      this.activeWorkers.size > 0 || granules.some((g) => g.state === "claimed");
+
+    if (implemented && !hasWorkInProgress) {
+      this.sessionLog.endSession();
+      this.ui.update(this.activeWorkers, granules);
+      this.stop();
+      return;
+    }
+
     // Granules that already have a worker assigned (avoid spawning twice for same granule)
     const assignedGranuleIds = new Set(
       [...this.activeWorkers.values()].map((w) => w.granuleId)
     );
 
     // Get unclaimed granules (skip ones that exceeded max retries)
-    const spawnableGranules = this.store.listGranules().filter(
+    const spawnableGranules = granules.filter(
       (g) =>
         g.state === "unclaimed" &&
         g.class !== "Implemented" &&
@@ -137,7 +160,7 @@ export class Orchestrator {
     }
 
     // Update UI
-    this.ui.update(this.activeWorkers, this.store.listGranules());
+    this.ui.update(this.activeWorkers, granules);
   }
 
   private cleanupCompletedWorkers(): void {
@@ -161,6 +184,11 @@ export class Orchestrator {
     if (!granule) {
       console.error(`Granule ${granuleId} not found`);
       return;
+    }
+
+    // Start session when first worker is spawned
+    if (this.activeWorkers.size === 0) {
+      this.sessionLog.startSession();
     }
 
     try {

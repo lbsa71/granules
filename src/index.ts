@@ -2,12 +2,30 @@
 import { GranuleStore } from "./store.js";
 import { Orchestrator } from "./orchestrator.js";
 
+function parseArgs(): { prompt?: string } {
+  const args = process.argv.slice(2);
+  const result: { prompt?: string } = {};
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "-p" || args[i] === "--prompt") {
+      const nextArg = args[i + 1];
+      if (nextArg && !nextArg.startsWith("-")) {
+        result.prompt = nextArg;
+        i++;
+      }
+    }
+  }
+
+  return result;
+}
+
 async function main() {
+  const { prompt } = parseArgs();
   const store = new GranuleStore();
   const orchestrator = new Orchestrator(store);
 
   try {
-    await orchestrator.start();
+    await orchestrator.start(prompt);
   } catch (error) {
     console.error("Failed to start orchestrator:", error);
     process.exit(1);

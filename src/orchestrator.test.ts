@@ -59,6 +59,14 @@ describe("Orchestrator", () => {
     expect(granules[0].class).toBe("implement");
   });
 
+  it("should use custom prompt for initial granule when provided", async () => {
+    await orchestrator.start("Implement a custom feature");
+    const granules = store.listGranules();
+    expect(granules).toHaveLength(1);
+    expect(granules[0].class).toBe("implement");
+    expect(granules[0].content).toBe("Implement a custom feature");
+  });
+
   it("should release stale claims in tick", async () => {
     await orchestrator.start();
     const granule = store.createGranule("plan", "Test");

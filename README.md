@@ -69,11 +69,11 @@ Server runs on `http://localhost:3000` using mcp-framework.
 ```
 1. Start MCP server on localhost:3000
 2. Check for granules; if none, create bootstrap granule:
-   - class: "plan"
-   - content: "Read README.md and plan the implementation of GRANULES"
+   - If -p flag provided: class="implement", content=prompt
+   - Otherwise: class="plan", content="Read README.md and perform gap analysis..."
 3. Main loop (every 5s):
    a. Fetch all granules
-   b. Release stale claims (claimedAt > 10 minutes ago)
+   b. Release stale claims (claimedAt > 30 minutes ago)
    c. For each unclaimed granule (up to MAX_WORKERS=3 active):
       - Spawn claude code cli with worker prompt
       - Worker ID: "W-{incrementing number}"
@@ -132,15 +132,24 @@ Each worker logs JSON output to: `logs/worker-{workerId}.json`
 ```
 granules/
 ├── src/
-│   ├── index.ts        # Entry point, starts orchestrator
-│   ├── server.ts       # MCP server setup
-│   ├── tools/          # MCP tool implementations
-│   ├── orchestrator.ts # Main loop, worker spawning
-│   └── types.ts        # Granule types
-├── logs/               # Worker output logs
+│   ├── index.ts         # Entry point, CLI args, starts orchestrator
+│   ├── orchestrator.ts  # Main loop, worker spawning
+│   ├── server.ts        # MCP server setup
+│   ├── store.ts         # In-memory granule store
+│   ├── types.ts         # Granule type definitions
+│   ├── worker.ts        # Worker process spawning
+│   ├── ui.ts            # Terminal UI manager
+│   ├── session-log.ts   # Session logging
+│   ├── tools/           # MCP tool implementations
+│   └── *.test.ts        # Test files
+├── logs/                # Worker output logs
+├── mcp-config.json      # MCP server config for workers
 ├── package.json
 ├── tsconfig.json
+├── vitest.config.ts
 ├── README.md
+├── ARCHITECTURE.md
+├── CONTRIBUTING.md
 └── CLAUDE.md
 ```
 
@@ -151,6 +160,26 @@ granules/
 npm install
 npm start
 ```
+
+## CLI Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `-p`, `--prompt` | Create an initial granule with the specified task instead of the default bootstrap granule |
+
+### Examples
+
+Start with a specific task:
+```bash
+npx @lbsa71/granules -p "Add dark mode support to the UI"
+```
+
+Start with default bootstrap behavior (gap analysis):
+```bash
+npx @lbsa71/granules
+```
+
+When using `-p`, the orchestrator creates an "implement" class granule with your prompt as the content, skipping the default "plan" granule that performs gap analysis.
 
 ## CI/CD
 

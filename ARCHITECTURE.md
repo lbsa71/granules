@@ -432,6 +432,12 @@ onExitCondition: (report) => {
 }
 ```
 
+### CLI Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `-p`, `--prompt` | Create initial granule with specified content (class: "implement") instead of default bootstrap granule |
+
 ### Environment Variables
 
 | Variable | Description | Default |
