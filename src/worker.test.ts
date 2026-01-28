@@ -25,4 +25,19 @@ describe("CLASS_PROMPTS", () => {
       expect(CLASS_PROMPTS[cls].length).toBeGreaterThan(0);
     }
   });
+
+  it("includes workerId and granuleId placeholders for actionable classes", () => {
+    const actionableClasses: GranuleClass[] = ["explore", "plan", "implement", "test", "review", "consolidate"];
+    for (const cls of actionableClasses) {
+      expect(CLASS_PROMPTS[cls]).toContain("{{workerId}}");
+      expect(CLASS_PROMPTS[cls]).toContain("{{granuleId}}");
+    }
+  });
+
+  it("includes branchName placeholder for classes that modify files", () => {
+    const fileModifyingClasses: GranuleClass[] = ["implement", "test", "consolidate"];
+    for (const cls of fileModifyingClasses) {
+      expect(CLASS_PROMPTS[cls]).toContain("{{branchName}}");
+    }
+  });
 });
