@@ -109,4 +109,25 @@ describe("Orchestrator", () => {
 
     expect(spawnWorker).toHaveBeenCalledOnce();
   });
+
+  it("should kill all active workers on stop", async () => {
+    const mockKill = vi.fn();
+    const { spawnWorker } = await import("./worker.js");
+    vi.mocked(spawnWorker).mockImplementation(() => ({
+      on: vi.fn(),
+      kill: mockKill,
+      killed: false,
+      exitCode: null,
+    }) as unknown as ReturnType<typeof spawnWorker>);
+
+    store.createGranule("implement", "Test task");
+    orchestrator = new Orchestrator(store);
+
+    await orchestrator.start();
+    orchestrator.stop();
+
+    expect(mockKill).toHaveBeenCalled();
+  });
+
 });
+

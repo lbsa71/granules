@@ -24,6 +24,15 @@ async function main() {
   const store = new GranuleStore();
   const orchestrator = new Orchestrator(store);
 
+  // Setup graceful shutdown handlers
+  const shutdown = () => {
+    orchestrator.stop();
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+
   try {
     await orchestrator.start(prompt);
   } catch (error) {

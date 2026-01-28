@@ -4,7 +4,8 @@ import { spawnWorker } from "./worker.js";
 import { UIManager } from "./ui.js";
 import { SessionLog } from "./session-log.js";
 import type { ChildProcess } from "child_process";
-import { readdirSync, unlinkSync, mkdirSync } from "fs";
+import { readdirSync, unlinkSync, mkdirSync, rmSync, existsSync } from "fs";
+import { execSync } from "child_process";
 import { join } from "path";
 
 const MAX_WORKERS = 3;
@@ -89,6 +90,13 @@ export class Orchestrator {
     // Stop UI
     this.ui.stop();
 
+    // Collect worktree info before killing workers
+    const worktreesToClean: string[] = [];
+    for (const worker of this.activeWorkers.values()) {
+      const branchName = `worker-${worker.workerId}-granule-${worker.granuleId}`;
+      worktreesToClean.push(branchName);
+    }
+
     // Terminate all active workers
     for (const worker of this.activeWorkers.values()) {
       try {
@@ -98,6 +106,40 @@ export class Orchestrator {
       }
     }
     this.activeWorkers.clear();
+
+    // Clean up worktrees directly (don't rely on child process cleanup)
+    this.cleanupWorktrees(worktreesToClean);
+  }
+
+  private cleanupWorktrees(branchNames: string[]): void {
+    const worktreesDir = join(process.cwd(), ".worktrees");
+
+    for (const branchName of branchNames) {
+      const worktreePath = join(worktreesDir, branchName);
+
+      // Remove worktree directory
+      try {
+        if (existsSync(worktreePath)) {
+          rmSync(worktreePath, { recursive: true, force: true });
+        }
+      } catch {
+        // Ignore errors
+      }
+
+      // Delete branch if it still exists
+      try {
+        execSync(`git branch -D "${branchName}"`, { cwd: process.cwd(), stdio: "pipe" });
+      } catch {
+        // Branch may already be deleted, ignore
+      }
+    }
+
+    // Prune worktrees
+    try {
+      execSync(`git worktree prune`, { cwd: process.cwd(), stdio: "pipe" });
+    } catch {
+      // Ignore errors
+    }
   }
 
   private cleanupLogs(): void {
