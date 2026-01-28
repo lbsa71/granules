@@ -1,4 +1,5 @@
 import type { Granule } from "./types.js";
+import { MAX_RETRIES } from "./constants.js";
 
 interface WorkerInfo {
   workerId: string;
@@ -205,7 +206,6 @@ export class UIManager {
 
     const audit = granules.find((g) => g.class === "audit");
 
-    const MAX_RETRIES = 3;
     const failed = granules.filter((g) => g.state === "unclaimed" && (g.retryCount ?? 0) >= MAX_RETRIES).length;
     const unclaimed = granules.filter((g) => g.state === "unclaimed" && (g.retryCount ?? 0) < MAX_RETRIES).length;
 

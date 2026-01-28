@@ -432,7 +432,8 @@ See [Granule Flow](docs/granule-flow.md) for the full state diagram.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GRANULES_WORKER_CMD` | Claude CLI command | `/Users/stefan/.local/bin/claude` |
+| `GRANULES_WORKER_CMD` | Claude CLI command | `claude` (PATH lookup) |
+| `PORT` | MCP server port | `3000` |
 
 ### Constants
 
@@ -441,7 +442,8 @@ See [Granule Flow](docs/granule-flow.md) for the full state diagram.
 | `MAX_WORKERS` | 3 | orchestrator.ts |
 | `LOOP_INTERVAL_MS` | 5000 (5s) | orchestrator.ts |
 | `STALE_CLAIM_TIMEOUT_MS` | 1800000 (30min) | orchestrator.ts |
-| Server port | 3000 | server.ts |
+| `MAX_RETRIES` | 3 | constants.ts |
+| `DEFAULT_PORT` | 3000 | server.ts |
 
 ## Testing
 

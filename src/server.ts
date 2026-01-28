@@ -106,12 +106,15 @@ export function createInMemoryMcpServer(store: GranuleStore): {
   return { server, clientTransport, serverTransport };
 }
 
+/** Default port for MCP server. Override with PORT environment variable. */
+const DEFAULT_PORT = 3000;
+
 /**
  * Start an HTTP MCP server using StreamableHTTP transport
  */
 export async function startMcpHttpServer(
   store: GranuleStore,
-  port: number = 3000
+  port: number = Number(process.env.PORT) || DEFAULT_PORT
 ): Promise<{ server: McpServer; httpServer: http.Server }> {
   const mcpServer = createMcpServer(store);
 
