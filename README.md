@@ -77,4 +77,5 @@ granules/
 
 ## CI/CD
 
-The package `@lbsa71/granules` is automatically published to npm on every push to `main`. Add `NPM_TOKEN` secret to GitHub repository settings.
+- **CI**: Tests and build run automatically on all pull requests and pushes to `main`
+- **Publish**: The package `@lbsa71/granules` is automatically published to npm on every push to `main`. Add `NPM_TOKEN` secret to GitHub repository settings.
