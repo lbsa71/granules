@@ -10,6 +10,7 @@ interface GranulesConfig {
   stateFile?: string;
   port?: number;
   maxWorkers?: number;
+  exitOnIdle?: boolean;
 }
 
 function loadConfig(): GranulesConfig {
@@ -21,9 +22,9 @@ function loadConfig(): GranulesConfig {
   }
 }
 
-function parseArgs(): { prompt?: string; store?: string; stateFile?: string; port?: number; maxWorkers?: number } {
+function parseArgs(): { prompt?: string; store?: string; stateFile?: string; port?: number; maxWorkers?: number; exitOnIdle?: boolean } {
   const args = process.argv.slice(2);
-  const result: { prompt?: string; store?: string; stateFile?: string; port?: number; maxWorkers?: number } = {};
+  const result: { prompt?: string; store?: string; stateFile?: string; port?: number; maxWorkers?: number; exitOnIdle?: boolean } = {};
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -43,6 +44,8 @@ function parseArgs(): { prompt?: string; store?: string; stateFile?: string; por
     } else if (arg === "--max-workers" && next) {
       result.maxWorkers = Number(next);
       i++;
+    } else if (arg === "--exit-on-idle") {
+      result.exitOnIdle = true;
     }
   }
 
@@ -71,7 +74,8 @@ async function main() {
     store = new GranuleStore();
   }
 
-  const orchestrator = new Orchestrator(store);
+  const exitOnIdle = flags.exitOnIdle ?? config.exitOnIdle ?? false;
+  const orchestrator = new Orchestrator(store, { exitOnIdle });
 
   // Setup graceful shutdown handlers
   const shutdown = () => {

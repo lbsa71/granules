@@ -28,9 +28,12 @@ export class Orchestrator {
   private serverStarted: boolean = false;
   private ui: UIManager;
   private sessionLog: SessionLog;
+  private exitOnIdle: boolean = false;
+  private hasHadWork: boolean = false;
 
-  constructor(store: Store) {
+  constructor(store: Store, options?: { exitOnIdle?: boolean }) {
     this.store = store;
+    this.exitOnIdle = options?.exitOnIdle ?? false;
     this.ui = new UIManager();
     this.sessionLog = new SessionLog(join(process.cwd(), "logs", "sessions.json"));
 
@@ -208,8 +211,25 @@ export class Orchestrator {
       this.spawnWorkerForGranule(granule.id);
     }
 
+    // Track that work has started (to avoid exiting before first granule is processed)
+    if (this.activeWorkers.size > 0 || granules.some((g) => g.state === "completed")) {
+      this.hasHadWork = true;
+    }
+
     // Update UI
     this.ui.update(this.activeWorkers, granules);
+
+    // Exit on idle: no unclaimed, no claimed, no active workers, and we've done at least some work
+    if (this.exitOnIdle && this.hasHadWork) {
+      const isIdle =
+        spawnableGranules.length === 0 &&
+        this.activeWorkers.size === 0 &&
+        !granules.some((g) => g.state === "claimed");
+      if (isIdle) {
+        this.stop();
+        process.exit(0);
+      }
+    }
   }
 
   private cleanupCompletedWorkers(): void {
