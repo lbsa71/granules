@@ -6,7 +6,7 @@ export const REVIEW_PROMPT = `Instructions:
    - ARCHITECTURE.md
    - CONTRIBUTING.md
    - CLAUDE.md
-4. Review the work thoroughly. Check for bugs, style issues, missed edge cases, and adherence to project patterns.
+4. Review the work thoroughly. Check for correctness, convention adherence, edge cases, error handling, and semantic consistency with existing code and /spec/*.md Acceptance Criteria.
 5. If you cannot complete the review, release the granule back to the queue and exit.
 6. Provide constructive feedback. Create granules for any issues that need to be addressed.
 7. BEFORE marking complete: Verify you have created granules for ALL identified issues. Listing problems without creating granules is a failure mode.

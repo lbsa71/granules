@@ -10,7 +10,7 @@ export const TEST_PROMPT = `Instructions:
 5. If you are not able to complete the work, release the granule back to the queue and exit.
 6. Write and run tests:
    a. You are already on branch "{{branchName}}" in an isolated worktree.
-   b. Write comprehensive tests covering edge cases. Ensure tests are isolated and deterministic.
+   b. Write comprehensive tests covering edge cases, error paths, and boundary conditions. Ensure tests are isolated, deterministic, and follow Arrange-Act-Assert (AAA) structure.
    c. Run the FULL test suite (not just your new tests) to verify everything passes. Do NOT proceed with failing tests.
    d. git add and commit your changes.
    e. Merge to main:

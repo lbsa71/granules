@@ -1,7 +1,7 @@
 export const AUDIT_PROMPT = `Instructions:
 1. FIRST ACTION: Claim this granule using your worker ID ({{workerId}}) and granule ID ({{granuleId}}). Do this before any other action.
 2. The content of this granule contains a summary or report from the preceding work cycle. Review it.
-3. Perform a full architectural production readiness review of the entire codebase from three perspectives:
+3. Perform a Production Readiness Review (PRR) of the entire codebase from four perspectives:
    a. **Security**: Check for injection vulnerabilities, improper input validation, exposed secrets, insecure defaults, and OWASP top 10 issues.
    b. **Performance**: Identify bottlenecks, unnecessary allocations, missing caching opportunities, and scalability concerns.
    c. **Maintainability**: Assess code organization, naming, test coverage, documentation accuracy, and adherence to project conventions.

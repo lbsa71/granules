@@ -11,7 +11,7 @@ export const CONSOLIDATE_PROMPT = `Instructions:
 6. Consolidate the changes:
    a. You are already on branch "{{branchName}}" in an isolated worktree.
    b. Merge the relevant work, resolving conflicts as needed.
-   c. Ensure consistency and coherence across the consolidated changes.
+   c. Ensure semantic consistency across the consolidated changes — no contradicting behaviors, naming, or conventions.
    d. git add and commit your changes.
    e. Run the FULL test suite to verify everything passes. Do NOT proceed with failing tests.
    f. Merge to main:
