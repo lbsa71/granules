@@ -11,13 +11,14 @@ export const TEST_PROMPT = `Instructions:
 6. Write and run tests:
    a. You are already on branch "{{branchName}}" in an isolated worktree.
    b. Write comprehensive tests covering edge cases. Ensure tests are isolated and deterministic.
-   c. Run the tests to verify they pass.
+   c. Run the FULL test suite (not just your new tests) to verify everything passes. Do NOT proceed with failing tests.
    d. git add and commit your changes.
    e. Merge to main:
       - git fetch origin main
       - git checkout main
       - git pull origin main
       - git merge "{{branchName}}" (resolve any conflicts)
+      - Run the full test suite AGAIN on main after merge. If tests fail, fix and re-commit before pushing.
       - git push origin main
       - git branch -d "{{branchName}}"
 7. Create granules for any bugs found or additional test coverage needed.

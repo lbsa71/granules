@@ -13,11 +13,13 @@ export const CONSOLIDATE_PROMPT = `Instructions:
    b. Merge the relevant work, resolving conflicts as needed.
    c. Ensure consistency and coherence across the consolidated changes.
    d. git add and commit your changes.
-   e. Merge to main:
+   e. Run the FULL test suite to verify everything passes. Do NOT proceed with failing tests.
+   f. Merge to main:
       - git fetch origin main
       - git checkout main
       - git pull origin main
       - git merge "{{branchName}}" (resolve any conflicts)
+      - Run the full test suite AGAIN on main after merge. If tests fail, fix and re-commit before pushing.
       - git push origin main
       - git branch -d "{{branchName}}"
 7. Create granules for any follow-up work identified during consolidation.

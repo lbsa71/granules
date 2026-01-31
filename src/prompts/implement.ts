@@ -14,11 +14,13 @@ export const IMPLEMENT_PROMPT = `Instructions:
    c. Make the changes in a TDD manner; test for the negative, then implement the positive.
    d. Refactor and restructure as necessary.
    e. git add and commit your changes.
-   f. Merge to main:
+   f. Run the FULL test suite (not just your new tests). If tests fail, fix them before proceeding. Do NOT merge with failing tests.
+   g. Merge to main:
       - git fetch origin main
       - git checkout main
       - git pull origin main
       - git merge "{{branchName}}" (resolve any conflicts)
+      - Run the full test suite AGAIN on main after merge. If tests fail, fix and re-commit before pushing.
       - git push origin main
       - git branch -d "{{branchName}}"
 7. Create granules for any follow-up work identified during implementation.
