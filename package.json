@@ -1,6 +1,6 @@
 {
   "name": "@lbsa71/granules",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Minimal multi-agent orchestrator using MCP",
   "main": "dist/index.js",
   "bin": {
