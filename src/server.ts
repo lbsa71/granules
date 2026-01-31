@@ -3,10 +3,9 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { z } from "zod";
 import http from "http";
-import type { GranuleStore } from "./store.js";
-import type { GranuleClass } from "./types.js";
+import type { GranuleClass, Store } from "./types.js";
 
-export function createMcpServer(store: GranuleStore): McpServer {
+export function createMcpServer(store: Store): McpServer {
   const server = new McpServer({
     name: "granules",
     version: "1.0.0",
@@ -96,7 +95,7 @@ export function createMcpServer(store: GranuleStore): McpServer {
 /**
  * Create an MCP server connected via in-memory transport (for testing)
  */
-export function createInMemoryMcpServer(store: GranuleStore): {
+export function createInMemoryMcpServer(store: Store): {
   server: McpServer;
   clientTransport: InMemoryTransport;
   serverTransport: InMemoryTransport;
@@ -113,7 +112,7 @@ const DEFAULT_PORT = 3000;
  * Start an HTTP MCP server using StreamableHTTP transport
  */
 export async function startMcpHttpServer(
-  store: GranuleStore,
+  store: Store,
   port: number = Number(process.env.PORT) || DEFAULT_PORT
 ): Promise<{ server: McpServer; httpServer: http.Server }> {
   const mcpServer = createMcpServer(store);

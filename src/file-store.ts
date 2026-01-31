@@ -1,26 +1,61 @@
-import { createHash } from "crypto";
+import { readFileSync, writeFileSync, renameSync, mkdirSync } from "fs";
+import { dirname, join } from "path";
+import { tmpdir } from "os";
+import { computeContentHash } from "./store.js";
 import type { Granule, GranuleClass, Store } from "./types.js";
 
-export function computeContentHash(content: string): string {
-  return createHash("sha256").update(content).digest("hex");
+interface FileStoreState {
+  nextId: number;
+  granules: Granule[];
 }
 
-export class GranuleStore implements Store {
+export class FileStore implements Store {
   private granules: Map<string, Granule> = new Map();
   private nextId: number = 1;
+  private filePath: string;
+
+  constructor(filePath: string = ".granules-state.json") {
+    this.filePath = filePath;
+    this.load();
+  }
+
+  private load(): void {
+    try {
+      const data = readFileSync(this.filePath, "utf-8");
+      const state: FileStoreState = JSON.parse(data);
+      this.nextId = state.nextId;
+      this.granules = new Map(state.granules.map((g) => [g.id, g]));
+    } catch {
+      // File doesn't exist or is invalid — start fresh
+    }
+  }
+
+  private persist(): void {
+    const state: FileStoreState = {
+      nextId: this.nextId,
+      granules: Array.from(this.granules.values()),
+    };
+    const json = JSON.stringify(state, null, 2);
+    // Atomic write: write to temp file then rename
+    const dir = dirname(this.filePath) || ".";
+    mkdirSync(dir, { recursive: true });
+    const tmpPath = join(dir, `.granules-tmp-${process.pid}-${Date.now()}.json`);
+    writeFileSync(tmpPath, json, "utf-8");
+    renameSync(tmpPath, this.filePath);
+  }
 
   createGranule(class_: GranuleClass, content: string): Granule {
     const id = `G-${this.nextId++}`;
-    const now = Date.now();
     const granule: Granule = {
       id,
       class: class_,
       content,
       contentHash: computeContentHash(content),
       state: "unclaimed",
-      createdAt: now,
+      createdAt: Date.now(),
     };
     this.granules.set(id, granule);
+    this.persist();
     return granule;
   }
 
@@ -34,60 +69,43 @@ export class GranuleStore implements Store {
 
   claimGranule(granuleId: string, workerId: string): { success: boolean; granule?: Granule } {
     const granule = this.granules.get(granuleId);
-    if (!granule) {
+    if (!granule || granule.state !== "unclaimed") {
       return { success: false };
     }
-
-    if (granule.state !== "unclaimed") {
-      return { success: false };
-    }
-
     granule.state = "claimed";
     granule.claimedBy = workerId;
     granule.claimedAt = Date.now();
-
+    this.persist();
     return { success: true, granule: { ...granule } };
   }
 
   releaseGranule(granuleId: string, workerId: string, error?: string): { success: boolean } {
     const granule = this.granules.get(granuleId);
-    if (!granule) {
+    if (!granule || granule.state !== "claimed" || granule.claimedBy !== workerId) {
       return { success: false };
     }
-
-    if (granule.state !== "claimed" || granule.claimedBy !== workerId) {
-      return { success: false };
-    }
-
     granule.state = "unclaimed";
     granule.claimedBy = undefined;
     granule.claimedAt = undefined;
-
-    // Track retries if this was a failure
     if (error) {
       granule.retryCount = (granule.retryCount ?? 0) + 1;
       granule.lastError = error;
     }
-
+    this.persist();
     return { success: true };
   }
 
   completeGranule(granuleId: string, workerId: string, summary?: string): { success: boolean } {
     const granule = this.granules.get(granuleId);
-    if (!granule) {
+    if (!granule || granule.state !== "claimed" || granule.claimedBy !== workerId) {
       return { success: false };
     }
-
-    if (granule.state !== "claimed" || granule.claimedBy !== workerId) {
-      return { success: false };
-    }
-
     granule.state = "completed";
     granule.completedAt = Date.now();
     if (summary !== undefined) {
       granule.summary = summary;
     }
-
+    this.persist();
     return { success: true };
   }
 
@@ -105,6 +123,9 @@ export class GranuleStore implements Store {
       granule.claimedBy = undefined;
       granule.claimedAt = undefined;
     }
+    if (stale.length > 0) {
+      this.persist();
+    }
     return stale.length;
   }
 
@@ -115,6 +136,7 @@ export class GranuleStore implements Store {
     }
     granule.content = content;
     granule.contentHash = computeContentHash(content);
+    this.persist();
     return { success: true, granule: { ...granule } };
   }
 }
