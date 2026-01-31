@@ -1,18 +1,48 @@
 #!/usr/bin/env node
+import { readFileSync } from "fs";
 import { GranuleStore } from "./store.js";
+import { FileStore } from "./file-store.js";
 import { Orchestrator } from "./orchestrator.js";
+import type { Store } from "./types.js";
 
-function parseArgs(): { prompt?: string } {
+interface GranulesConfig {
+  store?: "memory" | "file";
+  stateFile?: string;
+  port?: number;
+  maxWorkers?: number;
+}
+
+function loadConfig(): GranulesConfig {
+  try {
+    const data = readFileSync(".granules.json", "utf-8");
+    return JSON.parse(data) as GranulesConfig;
+  } catch {
+    return {};
+  }
+}
+
+function parseArgs(): { prompt?: string; store?: string; stateFile?: string; port?: number; maxWorkers?: number } {
   const args = process.argv.slice(2);
-  const result: { prompt?: string } = {};
+  const result: { prompt?: string; store?: string; stateFile?: string; port?: number; maxWorkers?: number } = {};
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "-p" || args[i] === "--prompt") {
-      const nextArg = args[i + 1];
-      if (nextArg && !nextArg.startsWith("-")) {
-        result.prompt = nextArg;
-        i++;
-      }
+    const arg = args[i];
+    const next = args[i + 1];
+    if ((arg === "-p" || arg === "--prompt") && next && !next.startsWith("-")) {
+      result.prompt = next;
+      i++;
+    } else if (arg === "--store" && next) {
+      result.store = next;
+      i++;
+    } else if (arg === "--state-file" && next) {
+      result.stateFile = next;
+      i++;
+    } else if (arg === "--port" && next) {
+      result.port = Number(next);
+      i++;
+    } else if (arg === "--max-workers" && next) {
+      result.maxWorkers = Number(next);
+      i++;
     }
   }
 
@@ -20,8 +50,27 @@ function parseArgs(): { prompt?: string } {
 }
 
 async function main() {
-  const { prompt } = parseArgs();
-  const store = new GranuleStore();
+  const config = loadConfig();
+  const flags = parseArgs();
+
+  // CLI flags override config file
+  const storeType = flags.store ?? config.store ?? "memory";
+  const stateFile = flags.stateFile ?? config.stateFile ?? ".granules-state.json";
+  const port = flags.port ?? config.port;
+  const prompt = flags.prompt;
+
+  // Set port env var if specified (used by server.ts)
+  if (port !== undefined) {
+    process.env.PORT = String(port);
+  }
+
+  let store: Store;
+  if (storeType === "file") {
+    store = new FileStore(stateFile);
+  } else {
+    store = new GranuleStore();
+  }
+
   const orchestrator = new Orchestrator(store);
 
   // Setup graceful shutdown handlers

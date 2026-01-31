@@ -1,4 +1,4 @@
-import { GranuleStore } from "./store.js";
+import type { Store } from "./types.js";
 import { startMcpHttpServer } from "./server.js";
 import { spawnWorker } from "./worker.js";
 import { UIManager } from "./ui.js";
@@ -21,7 +21,7 @@ interface ActiveWorker {
 }
 
 export class Orchestrator {
-  private store: GranuleStore;
+  private store: Store;
   private activeWorkers: Map<string, ActiveWorker> = new Map();
   private nextWorkerId: number = 1;
   private loopInterval?: NodeJS.Timeout;
@@ -29,7 +29,7 @@ export class Orchestrator {
   private ui: UIManager;
   private sessionLog: SessionLog;
 
-  constructor(store: GranuleStore) {
+  constructor(store: Store) {
     this.store = store;
     this.ui = new UIManager();
     this.sessionLog = new SessionLog(join(process.cwd(), "logs", "sessions.json"));
