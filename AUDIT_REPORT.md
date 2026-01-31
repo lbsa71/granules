@@ -1,116 +1,109 @@
 # GRANULES Architectural Audit Report
 
-**Date**: 2026-01-28
+**Date**: 2026-01-31
 **Auditor**: Worker W-2
 **Granule**: G-2 (audit class)
+**Version**: 1.0.17
 
 ## Executive Summary
 
-GRANULES is a well-designed minimal multi-agent orchestrator that meets its stated goals. The codebase demonstrates good practices including TypeScript strict mode, comprehensive test coverage (48 tests), clear separation of concerns, and thorough documentation.
+GRANULES is a well-structured minimal multi-agent orchestrator. The codebase is clean, well-tested (90 tests across 7 test files), and appropriately documented. This audit supersedes the previous report (2026-01-28) which was based on an earlier version with 48 tests.
 
-**Overall Assessment**: Production-ready for its intended use case as a local development tool. Some hardening improvements are recommended for broader deployment scenarios.
-
----
-
-## Security Audit
-
-### Low Severity Issues
-
-| ID | Issue | Location | Impact | Recommendation |
-|----|-------|----------|--------|----------------|
-| SEC-1 | Shell command interpolation | worker.ts:56,86-91 | Low - internally controlled IDs | Consider using exec array form instead of shell scripts |
-| SEC-2 | --dangerously-skip-permissions flag | worker.ts:90 | Expected - by design | Document security implications clearly |
-| SEC-3 | Hardcoded user-specific path | worker.ts:15 | Low - overridable via env | Change default to `claude` (rely on PATH) |
-| SEC-4 | Unauthenticated localhost server | server.ts | Low - localhost only | Acceptable for local tool; document the assumption |
-| SEC-5 | No input size limits | store.ts | Low | Add content length validation (e.g., 100KB max) |
-
-### Positive Findings
-- Environment variables are not logged or exposed
-- No hardcoded secrets or API keys
-- Proper use of Zod for input validation in MCP tools
-- Temporary files (scripts) created with restricted permissions (0o700)
+**Overall Assessment**: Production-ready for its intended use case as a local development orchestration tool.
 
 ---
 
-## Performance Audit
+## Security
 
-### Acceptable Trade-offs
+| ID | Finding | Severity | Location | Notes |
+|----|---------|----------|----------|-------|
+| SEC-1 | Shell command interpolation in `execSync` | Low | `worker.ts:56-57`, `orchestrator.ts:131` | Branch names are internally generated (`worker-W-N-granule-G-N`) so injection risk is minimal. The `esc()` function in `worker.ts:85` escapes single quotes in the prompt. |
+| SEC-2 | `--dangerously-skip-permissions` flag | Info | `worker.ts:90` | By design — workers need autonomous file/git access. |
+| SEC-3 | Unauthenticated MCP HTTP server | Low | `server.ts:129` | Binds to localhost. Any local process can manipulate granules. Acceptable for a local dev tool. |
+| SEC-4 | No input size limits on granule content | Low | `store.ts:12` | A malicious MCP client could submit very large content strings. Low risk given local-only access. |
+| SEC-5 | Temp script written to `/tmp` with prompt content | Low | `worker.ts:86-92` | Script has 0o700 permissions and is cleaned up on exit. Brief window where prompt is on disk. |
 
-| ID | Observation | Location | Assessment |
-|----|-------------|----------|------------|
-| PERF-1 | In-memory store, no persistence | store.ts | By design - acceptable for ephemeral orchestration |
-| PERF-2 | 5-second polling loop | orchestrator.ts:11 | Adequate for use case |
-| PERF-3 | Array copy on listGranules() | store.ts:21-23 | Acceptable - granule count expected to be low |
-| PERF-4 | 200ms UI rerender interval | ui.ts:162 | Acceptable - provides smooth animation |
-
-### Positive Findings
-- No unnecessary async/await overhead
-- Efficient use of Map for granule storage with O(1) lookups
-- Worker processes are properly cleaned up on exit
-- Git worktree isolation prevents file system contention
+**No high or critical security issues found.**
 
 ---
 
-## Maintainability Audit
+## Performance
+
+| ID | Observation | Assessment |
+|----|-------------|------------|
+| PERF-1 | In-memory store with `Map` | O(1) lookups. Appropriate for expected granule counts (<100). |
+| PERF-2 | `listGranules()` creates new array each call | Called every 5s in tick loop. Negligible at expected scale. |
+| PERF-3 | 5-second polling loop | Adequate. No need for event-driven at this scale. |
+| PERF-4 | 200ms UI render interval (screen clear + full redraw) | May cause flicker on slow terminals. Acceptable trade-off. |
+| PERF-5 | `FileStore.persist()` writes full state on every mutation | Atomic write via rename is correct. Frequency is low enough. |
+
+**No performance issues requiring action.**
+
+---
+
+## Maintainability
 
 ### Strengths
+- **90 tests** across 7 files with good coverage of core operations
+- Clean separation: store, server, orchestrator, worker, UI, session-log, file-store
+- TypeScript strict mode
+- Prompts extracted to individual files under `src/prompts/`
+- `Store` interface allows swappable implementations (memory vs file)
+- `MAX_RETRIES` extracted to `constants.ts`
 
-| Category | Assessment |
-|----------|------------|
-| Test Coverage | Excellent - 48 tests across 5 test files covering all major functionality |
-| TypeScript | Strict mode enabled and passing |
-| Code Organization | Clear separation: store, server, orchestrator, worker, UI, prompts |
-| Documentation | Comprehensive: README, ARCHITECTURE, CONTRIBUTING, docs/ folder |
-| Naming | Consistent and descriptive naming conventions |
-| TDD Workflow | Documented in CLAUDE.md |
+### Issues Found
 
-### Minor Observations
-
-| ID | Observation | Location | Recommendation |
-|----|-------------|----------|----------------|
-| MAINT-1 | No error scenario tests | *.test.ts | Add tests for error paths (nice-to-have) |
-| MAINT-2 | MAX_RETRIES duplicated | orchestrator.ts:13, ui.ts:208 | Extract to shared constant |
-
----
-
-## Deployability Audit
-
-### Gaps Identified
-
-| ID | Issue | Priority | Recommendation |
-|----|-------|----------|----------------|
-| DEPLOY-1 | No Dockerfile | Low | Add Dockerfile for containerized deployment |
-| DEPLOY-2 | No CI/CD workflow files | Medium | Add GitHub Actions for test/build/publish |
-| DEPLOY-3 | Hardcoded port 3000 | Low | Make port configurable via PORT env var |
-| DEPLOY-4 | No graceful shutdown | Low | Handle SIGTERM to clean up worktrees |
-| DEPLOY-5 | No structured logging | Low | Consider structured JSON logging for production |
-
-### Positive Findings
-- Package.json correctly configured for npm publishing
-- bin entry point defined for CLI usage
-- mcp-config.json included in package files
-- .gitignore properly excludes logs, node_modules, dist, worktrees
+| ID | Issue | Severity | Location |
+|----|-------|----------|----------|
+| MAINT-1 | `express` is a production dependency but never imported | Low | `package.json:32` |
+| MAINT-2 | `@types/express` is a dev dependency but express is unused | Low | `package.json:36` |
+| MAINT-3 | `src/tools/` directory with `getTools()` function appears to be dead code — `server.ts` registers tools inline using `server.tool()` | Low | `src/tools/index.ts` |
+| MAINT-4 | `supertest` dev dependency appears unused (no imports found) | Low | `package.json:38` |
 
 ---
 
-## Recommendations Summary
+## Deployability
 
-### Immediate (No Granules Needed)
-The codebase is production-ready for its intended use case. The identified issues are minor and don't warrant blocking the current release.
+| ID | Observation | Assessment |
+|----|-------------|------------|
+| DEPLOY-1 | CI workflow exists (`.github/workflows/ci.yml`) | Good |
+| DEPLOY-2 | Auto-publish workflow exists (`.github/workflows/publish.yml`) | Good |
+| DEPLOY-3 | Port configurable via `PORT` env var | Good |
+| DEPLOY-4 | Graceful shutdown handles SIGTERM/SIGINT | Good |
+| DEPLOY-5 | `package.json` correctly configured with `bin`, `files`, `type: "module"` | Good |
+| DEPLOY-6 | No Dockerfile | Low priority — appropriate for an npm CLI tool |
 
-### Future Improvements (Optional)
-1. Add Dockerfile for containerization
-2. Add GitHub Actions workflow for CI/CD
-3. Make port configurable via environment variable
-4. Add graceful shutdown handling
-5. Change CLAUDE_PATH default to rely on PATH lookup
+---
+
+## Artifact Consistency
+
+| Artifact | Status | Notes |
+|----------|--------|-------|
+| ARCHITECTURE.md | Mostly accurate | Missing: `file-store.ts`, `constants.ts`, `src/prompts/` directory. Lists `docs/granule-flow.md` correctly. Test count says "5 test files" but there are 7. |
+| README.md | Accurate | Correct overview, structure, and links. |
+| CONTRIBUTING.md | Accurate | Correctly describes TDD workflow and worktree process. |
+| docs/ | 4 files present as documented | `configuration.md`, `granule-flow.md`, `mcp-tools.md`, `worker-prompts.md` |
+| No CONSTRAINTS.md | N/A | Not needed for a complete project. |
+| No PROGRESS.md | N/A | Not needed for a complete project. |
+| No spec/ or domain/ dirs | N/A | Appropriate for project scope. |
+
+---
+
+## Recommendations
+
+### Should Fix (Low Effort)
+1. **Remove unused `express` and `@types/express` dependencies** from `package.json` — reduces install size
+2. **Remove unused `supertest` dev dependency** if confirmed unused
+3. **Update ARCHITECTURE.md** to mention `file-store.ts`, `constants.ts`, `src/prompts/`, and correct test file count
+
+### Consider for Future
+1. Remove or integrate `src/tools/` dead code (currently tools are registered inline in `server.ts`)
+2. Add rate limiting or content size limits on MCP endpoints for defense-in-depth
 
 ---
 
 ## Conclusion
 
-GRANULES passes this architectural audit. The design is clean, the implementation is solid, and the test coverage provides confidence in the codebase. The project successfully achieves its goal of being a minimal multi-agent orchestrator.
+The codebase passes this audit. It is well-tested, cleanly organized, and appropriately documented. The issues found are minor housekeeping items (unused dependencies, slightly stale ARCHITECTURE.md). No blocking issues or new granules required.
 
-**No critical or high-severity issues found. No blocking granules required.**
-
-The minor improvements identified are enhancements rather than fixes and can be addressed in future iterations if needed.
+**No critical, high, or medium severity issues found.**
