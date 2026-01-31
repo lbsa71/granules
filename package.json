@@ -1,6 +1,6 @@
 {
   "name": "@lbsa71/granules",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Minimal multi-agent orchestrator using MCP",
   "main": "dist/index.js",
   "bin": {
@@ -17,7 +17,11 @@
     "test": "vitest",
     "test:watch": "vitest --watch"
   },
-  "keywords": ["mcp", "orchestrator", "multi-agent"],
+  "keywords": [
+    "mcp",
+    "orchestrator",
+    "multi-agent"
+  ],
   "author": "",
   "license": "MIT",
   "repository": {
