@@ -56,3 +56,36 @@ Production multi-agent system using stigmergy (indirect coordination through sha
 ---
 
 *Document maintained by Rook. Last updated: 2026-02-03*
+
+## Proposed Plugin Architecture for Granules
+
+Based on analysis of autonomous-agents and similar systems, Granules could abstract these concerns as composable plugins:
+
+### Plugin Categories
+
+| Category | Examples | Purpose |
+|----------|----------|---------|
+| **Storage** | `FileStore`, `GitStore`, `S3Store` | Where state lives |
+| **Coordination** | `StigmergyCoordinator`, `DirectCoordinator` | How agents claim work |
+| **Learning** | `PatternLogger`, `LessonTracker` | Self-improvement over time |
+| **Healing** | `TimeoutReleaser`, `ConflictRetrier` | Auto-recovery from failures |
+| **Context** | `IncrementalLoader`, `SummaryContext` | Token optimization |
+
+### Usage Pattern
+
+```javascript
+const granules = new Granules()
+  .use(new GitStore({ repo: './workspace' }))
+  .use(new StigmergyCoordinator({ claimTimeout: '4h' }))
+  .use(new PatternLogger({ path: 'knowledge/patterns.jsonl' }))
+  .use(new TimeoutReleaser({ staleAfter: '2h' }))
+  .use(new IncrementalContext({ maxTokens: 8000 }));
+```
+
+### Benefits
+- Mix and match coordination strategies
+- Swap storage backends without code changes
+- Add learning/healing incrementally
+- Test components in isolation
+
+This would make Granules a **framework for building multi-agent systems** rather than one specific implementation.
